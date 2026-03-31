@@ -34,3 +34,63 @@ doc_ref.delete()
 print("  Cleanup OK — test document deleted")
 
 print("\nAll tests passed.")
+
+
+
+import json
+from google.cloud import pubsub_v1
+
+PROJECT_ID = "video-intelligence-v1"
+TOPIC_ID = "video-processing"
+SUBSCRIPTION_ID = "video-processing-sub"
+
+# --- Test 3: Pub/Sub publish ---
+print("Testing Pub/Sub publish...")
+publisher = pubsub_v1.PublisherClient()
+topic_path = publisher.topic_path(PROJECT_ID, TOPIC_ID)
+
+message_data = {
+    "jobId": "test-job-pubsub-001",
+    "gcsPath": "raw-videos/test-job-pubsub-001/test.mp4",
+    "filename": "test.mp4",
+    "uploadedAt": "2024-01-01T00:00:00Z"
+}
+
+future = publisher.publish(
+    topic_path,
+    data=json.dumps(message_data).encode("utf-8")
+)
+message_id = future.result()
+print(f"  Publish OK — message ID: {message_id}")
+
+# --- Test 4: Pub/Sub pull and ack ---
+import time
+time.sleep(2)  # small delay to avoid propagation lag
+
+print("Testing Pub/Sub pull...")
+subscriber = pubsub_v1.SubscriberClient()
+subscription_path = subscriber.subscription_path(PROJECT_ID, SUBSCRIPTION_ID)
+
+response = subscriber.pull(
+    request={
+        "subscription": subscription_path,
+        "max_messages": 1,
+    }
+)
+
+if not response.received_messages:
+    print("  No messages received — try running again in a few seconds")
+else:
+    received = response.received_messages[0]
+    payload = json.loads(received.message.data.decode("utf-8"))
+    print(f"  Pull OK — received jobId: {payload['jobId']}")
+
+    subscriber.acknowledge(
+        request={
+            "subscription": subscription_path,
+            "ack_ids": [received.ack_id],
+        }
+    )
+    print("  Ack OK — message acknowledged")
+
+print("\nPub/Sub test complete.")
