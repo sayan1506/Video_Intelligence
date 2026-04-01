@@ -94,3 +94,50 @@ else:
     print("  Ack OK — message acknowledged")
 
 print("\nPub/Sub test complete.")
+
+
+
+import asyncio
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from services.storage import upload_to_gcs, get_video_url
+from services.firestore import create_job, get_job, update_job_status
+from services.pubsub import publish_job_message
+
+TEST_JOB_ID = "scratch-test-day5"
+
+# --- Test storage (using a fake UploadFile-like object) ---
+print("Testing storage service...")
+
+class FakeUploadFile:
+    filename = "scratch-test.mp4"
+    content_type = "video/mp4"
+    async def read(self):
+        return b"fake video content for testing"
+    async def seek(self, pos):
+        pass
+
+gcs_path = asyncio.run(upload_to_gcs(FakeUploadFile(), TEST_JOB_ID))
+print(f"  Upload OK — {gcs_path}")
+
+# --- Test Firestore service ---
+print("Testing Firestore service...")
+create_job(TEST_JOB_ID, "scratch-test.mp4", gcs_path)
+print("  Create OK")
+
+job = get_job(TEST_JOB_ID)
+print(f"  Read OK — status: {job['status']}")
+
+update_job_status(TEST_JOB_ID, "processing", progress=10)
+job = get_job(TEST_JOB_ID)
+print(f"  Update OK — status: {job['status']}, progress: {job.get('progress')}")
+
+# --- Test Pub/Sub service ---
+print("Testing Pub/Sub service...")
+msg_id = publish_job_message(TEST_JOB_ID, gcs_path, "scratch-test.mp4")
+print(f"  Publish OK — message ID: {msg_id}")
+
+print("\nAll Day 5 service tests passed.")
