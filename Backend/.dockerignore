@@ -1,0 +1,17 @@
+# Secrets — never bake these into the image
+service-account.json
+.env
+env.yaml
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Dev files
+scratch.py
+.vscode/
+.idea/
+*.md
