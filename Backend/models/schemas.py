@@ -4,13 +4,13 @@ from datetime import datetime
 
 
 class UploadResponse(BaseModel):
-    job_id: str
+    jobId: str
     status: str
     message: str
 
 
 class StatusResponse(BaseModel):
-    job_id: str
+    jobId: str
     status: str
     progress: int
     createdAt: Optional[datetime] = None
