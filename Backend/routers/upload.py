@@ -110,7 +110,9 @@ async def upload_video(file: UploadFile = File(...)):
         pubsub.publish_job_message(
             job_id=job_id,
             gcs_path=gcs_path,
-            filename=file.filename
+            filename=file.filename,
+            file_size_bytes=file.size or 0,   
+            content_type=file.content_type,
         )
         logger.info(f"[{job_id}] Pub/Sub message published")
     except (GoogleAPICallError, ServiceUnavailable) as e:

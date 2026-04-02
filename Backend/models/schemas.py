@@ -54,3 +54,21 @@ class ResultResponse(BaseModel):
     processingTime: Optional[int] = None
 
 
+
+
+class JobMessage(BaseModel):
+    """
+    Pub/Sub message payload published by the backend after a successful upload.
+    Consumed and validated by the worker subscriber in Week 3.
+
+    All fields are required — the worker depends on all of them.
+    """
+    jobId: str
+    gcsPath: str               # e.g. raw-videos/{jobId}/{filename}
+    gcsBucket: str             # e.g. video-intelligence-raw
+    gcsUri: str                # e.g. gs://video-intelligence-raw/raw-videos/{jobId}/{filename}
+    filename: str
+    fileSizeMb: float          # Rounded to 2 decimal places
+    contentType: str           # e.g. video/mp4
+    uploadedAt: str            # ISO 8601 string — datetime not JSON serialisable by default
+    schemaVersion: str = "1"   # Allows the worker to handle future schema changes gracefully
