@@ -103,7 +103,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from services.storage import upload_to_gcs, get_video_url
+from services.storage import upload_to_gcs, get_signed_url
 from services.firestore import create_job, get_job, update_job_status
 from services.pubsub import publish_job_message
 
@@ -113,12 +113,23 @@ TEST_JOB_ID = "scratch-test-day5"
 print("Testing storage service...")
 
 class FakeUploadFile:
-    filename = "scratch-test.mp4"
-    content_type = "video/mp4"
-    async def read(self):
-        return b"fake video content for testing"
+    def __init__(self):
+        self.content = b"fake video content for testing " * 100
+        self.filename = "scratch-test.mp4"
+        self.content_type = "video/mp4"
+        self.size = len(self.content)
+        self._pos = 0
+
+    async def read(self, size=-1):
+        if size == -1:
+            chunk = self.content[self._pos:]
+        else:
+            chunk = self.content[self._pos:self._pos + size]
+        self._pos += len(chunk)
+        return chunk
+
     async def seek(self, pos):
-        pass
+        self._pos = pos
 
 gcs_path = asyncio.run(upload_to_gcs(FakeUploadFile(), TEST_JOB_ID))
 print(f"  Upload OK — {gcs_path}")
@@ -141,3 +152,86 @@ msg_id = publish_job_message(TEST_JOB_ID, gcs_path, "scratch-test.mp4")
 print(f"  Publish OK — message ID: {msg_id}")
 
 print("\nAll Day 5 service tests passed.")
+
+
+
+
+import asyncio
+from dotenv import load_dotenv
+load_dotenv()
+
+from utils.validators import check_magic_bytes, validate_file_extension
+
+print("Testing magic bytes validator...")
+
+# Test 1: Valid MP4 header
+mp4_header = b'\x00\x00\x00\x20' + b'ftyp' + b'isom' + b'\x00' * 4
+result = check_magic_bytes(mp4_header, "video/mp4")
+print(f"  MP4 magic bytes: {'PASS' if result else 'FAIL'}")
+
+# Test 2: Fake MP4 (text file pretending to be video)
+fake_header = b'This is just a text file, not a video at all!!'
+result = check_magic_bytes(fake_header, "video/mp4")
+print(f"  Fake MP4 rejected: {'PASS' if not result else 'FAIL'}")
+
+# Test 3: AVI header
+avi_header = b'RIFF' + b'\x00' * 8
+result = check_magic_bytes(avi_header, "video/avi")
+print(f"  AVI magic bytes: {'PASS' if result else 'FAIL'}")
+
+# Test 4: Extension validation
+print(f"  .mp4 extension: {'PASS' if validate_file_extension('video.mp4') else 'FAIL'}")
+print(f"  .exe extension: {'PASS' if not validate_file_extension('bad.exe') else 'FAIL'}")
+print(f"  no extension:   {'PASS' if not validate_file_extension('noext') else 'FAIL'}")
+
+print("\nValidator tests complete.")
+
+
+# Test chunked upload with a real file
+# Replace the path below with a real small .mp4 on your machine
+import os
+from services.storage import upload_to_gcs, CHUNK_SIZE
+
+TEST_VIDEO_PATH = r"C:\Users\sayan\Videos\Screen Recordings\Screen Recording 2026-03-13 182939.mp4"  # ← update this
+
+if os.path.exists(TEST_VIDEO_PATH):
+    print(f"\nTesting chunked upload with real file...")
+    print(f"  Chunk size: {CHUNK_SIZE / (1024*1024):.0f}MB")
+
+    class RealFileUpload:
+        def __init__(self, path):
+            self.path = path
+            self.filename = os.path.basename(path)
+            self.content_type = "video/mp4"
+            self.size = os.path.getsize(path)
+            self._pos = 0
+            self._data = open(path, "rb").read()
+
+        async def read(self, size=-1):
+            if size == -1:
+                chunk = self._data[self._pos:]
+            else:
+                chunk = self._data[self._pos:self._pos + size]
+            self._pos += len(chunk)
+            return chunk
+
+        async def seek(self, pos):
+            self._pos = pos
+
+    progress_log = []
+
+    async def on_progress(percent):
+        progress_log.append(percent)
+        print(f"  Upload progress: {percent}%", end="\r")
+
+    async def run_upload():
+        fake_file = RealFileUpload(TEST_VIDEO_PATH)
+        job_id = "scratch-w2d1-chunked"
+        gcs_path = await upload_to_gcs(fake_file, job_id, progress_callback=on_progress)
+        return gcs_path
+
+    gcs_path = asyncio.run(run_upload())
+    print(f"\n  Chunked upload OK → {gcs_path}")
+    print(f"  Progress callbacks fired: {len(progress_log)} times")
+else:
+    print(f"\nSkipping real file test — update TEST_VIDEO_PATH in scratch.py")
