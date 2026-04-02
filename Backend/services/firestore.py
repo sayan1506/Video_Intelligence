@@ -22,6 +22,8 @@ def create_job(job_id: str, filename: str, gcs_path: str) -> dict:
         "filename": filename,
         "gcsPath": gcs_path,
         "videoUrl": "",
+        "uploadProgress": 0,    
+        "progress": 0,
         "createdAt": now,
         "updatedAt": now,
         "processingTime": 0,
@@ -61,3 +63,23 @@ def update_job_status(job_id: str, status: str, progress: int = 0, error: str = 
         update_data["errorMessage"] = error
 
     db.collection("jobs").document(job_id).update(update_data)
+
+
+
+def update_upload_progress(job_id: str, upload_progress: int) -> None:
+    """
+    Update the uploadProgress field of a job document.
+
+    Called by the progress_callback during chunked GCS upload.
+    Kept as a lightweight update — only touches two fields.
+
+    Args:
+        job_id: The job to update.
+        upload_progress: Integer 0–100 representing GCS upload completion.
+    """
+    from datetime import datetime, timezone
+    db = get_db()
+    db.collection("jobs").document(job_id).update({
+        "uploadProgress": upload_progress,
+        "updatedAt": datetime.now(timezone.utc)
+    })

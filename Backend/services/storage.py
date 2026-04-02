@@ -1,47 +1,90 @@
 import os
+import logging
 from google.cloud import storage
 from fastapi import UploadFile
 
+logger = logging.getLogger(__name__)
 
 BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "video-intelligence-raw")
 
+# Chunk size for streaming uploads — 8MB balances memory usage vs GCS API calls.
+# GCS requires chunks to be multiples of 256KB for resumable uploads.
+# 8MB = 8 * 1024 * 1024 = 8388608 bytes
+CHUNK_SIZE = 8 * 1024 * 1024
+
 
 def get_storage_client() -> storage.Client:
-    return storage.Client()  # ADC
+    return storage.Client()  # ADC — no credentials arg
 
 
-async def upload_to_gcs(file: UploadFile, job_id: str) -> str:
+def build_gcs_path(job_id: str, filename: str) -> str:
+    """Consistent GCS path format used across backend and worker."""
+    return f"raw-videos/{job_id}/{filename}"
+
+
+async def upload_to_gcs(
+    file: UploadFile,
+    job_id: str,
+    progress_callback=None
+) -> str:
     """
-    Stream an uploaded file directly to GCS.
-    Returns the GCS path (not the full URL) — e.g. raw-videos/{jobId}/{filename}
+    Stream an uploaded file to GCS in 8MB chunks.
+
+    Args:
+        file: FastAPI UploadFile object.
+        job_id: Unique job identifier — used as the GCS folder name.
+        progress_callback: Optional async callable(percent: int) called after
+                           each chunk. Used to update Firestore upload progress.
+
+    Returns:
+        The GCS object path (not the full gs:// URI).
     """
     client = get_storage_client()
     bucket = client.bucket(BUCKET_NAME)
-
-    destination_path = f"raw-videos/{job_id}/{file.filename}"
+    destination_path = build_gcs_path(job_id, file.filename)
     blob = bucket.blob(destination_path)
 
-    # Read the file content and upload
-    contents = await file.read()
-    blob.upload_from_string(
-        contents,
-        content_type=file.content_type
-    )
+    # Get total file size for progress calculation.
+    # file.size is set by FastAPI from Content-Length if present.
+    total_size = file.size or 0
 
+    logger.info(f"[{job_id}] Starting chunked GCS upload → {destination_path}")
+
+    bytes_uploaded = 0
+
+    # blob.open("wb") initiates a GCS resumable upload session.
+    # Resumable uploads survive transient network failures automatically.
+    with blob.open("wb", chunk_size=CHUNK_SIZE) as gcs_stream:
+        while True:
+            chunk = await file.read(CHUNK_SIZE)
+            if not chunk:
+                break
+
+            gcs_stream.write(chunk)
+            bytes_uploaded += len(chunk)
+
+            if progress_callback and total_size > 0:
+                percent = min(int((bytes_uploaded / total_size) * 100), 100)
+                await progress_callback(percent)
+
+    logger.info(f"[{job_id}] GCS upload complete — {bytes_uploaded} bytes")
     return destination_path
 
 
-def get_video_url(gcs_path: str) -> str:
+def get_signed_url(gcs_path: str, expiration_minutes: int = 120) -> str:
     """
-    Returns a public GCS URL for the given path.
-    Note: bucket must allow public read, or use signed URLs in production.
-    """
-    return f"https://storage.googleapis.com/{BUCKET_NAME}/{gcs_path}"
+    Generate a time-limited signed URL for a GCS object.
 
-def get_signed_url(gcs_path: str, expiration_minutes: int = 60) -> str:
-    """
-    Returns a time-limited signed URL — useful for result responses
-    where you don't want to make the bucket fully public.
+    The URL allows unauthenticated GET access for expiration_minutes.
+    Used to give the frontend a streamable video URL without making
+    the bucket public.
+
+    Args:
+        gcs_path: GCS object path e.g. raw-videos/{jobId}/{filename}
+        expiration_minutes: How long the URL is valid (default 2 hours)
+
+    Returns:
+        A full HTTPS signed URL.
     """
     import datetime
     client = get_storage_client()
@@ -54,3 +97,12 @@ def get_signed_url(gcs_path: str, expiration_minutes: int = 60) -> str:
         version="v4"
     )
     return url
+
+
+def delete_gcs_object(gcs_path: str) -> None:
+    """Delete a GCS object. Used for cleanup on failed jobs."""
+    client = get_storage_client()
+    bucket = client.bucket(BUCKET_NAME)
+    blob = bucket.blob(gcs_path)
+    blob.delete()
+    logger.info(f"Deleted GCS object: {gcs_path}")
