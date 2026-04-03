@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, HTTPException
 from google.api_core.exceptions import GoogleAPICallError
-from models.schemas import StatusResponse
+from models.schemas import StatusResponse, progress_to_stage
 from services import firestore
 
 router = APIRouter()
@@ -19,12 +19,16 @@ async def get_status(job_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
 
+    progress = job.get("progress", 0)
+    status = job["status"]
+
     return StatusResponse(
         jobId=job["jobId"],
-        status=job["status"],
-        progress=job.get("progress", 0),
+        status=status,
+        progress=progress,
+        stage=progress_to_stage(progress, status),   # ← derive from progress + status
         uploadProgress=job.get("uploadProgress", 0),
-        videoUrl=job.get("videoUrl"),   
+        videoUrl=job.get("videoUrl"),
         createdAt=job.get("createdAt"),
         updatedAt=job.get("updatedAt"),
     )

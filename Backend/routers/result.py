@@ -31,5 +31,7 @@ async def get_result(job_id: str):
         jobId=job["jobId"],
         status=job["status"],
         videoUrl=job.get("videoUrl"),
-        processingTime=job.get("processingTime", 0)
+        processingTime=job.get("processingTime", 0),
+        processingStartedAt=job.get("processingStartedAt"),      
+        processingCompletedAt=job.get("processingCompletedAt"),  
     )

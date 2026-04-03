@@ -328,45 +328,121 @@
 
 
 
-import os
+# import os
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# from services.storage import get_signed_url, build_gcs_path
+# from services.firestore import write_video_url, get_job
+
+# print("Testing signed URL generation...")
+
+# # Use the GCS path from a previous scratch test upload
+# # Replace with a real path from your GCS bucket
+# TEST_JOB_ID = "scratch-w2d1-chunked"
+# TEST_GCS_PATH = build_gcs_path(TEST_JOB_ID, "test-video.mp4")
+
+# try:
+#     signed_url = get_signed_url(TEST_GCS_PATH, expiration_minutes=15)
+#     print(f"  Signed URL generated OK")
+#     print(f"  URL starts with https://: {'PASS' if signed_url.startswith('https://') else 'FAIL'}")
+#     print(f"  URL contains X-Goog-Signature: {'PASS' if 'X-Goog-Signature' in signed_url else 'FAIL'}")
+#     print(f"  Full URL (first 120 chars): {signed_url[:120]}...")
+# except Exception as e:
+#     print(f"  Signed URL generation FAILED: {e}")
+#     print("  Check: Token Creator role granted? Correct GCS path?")
+
+# print("\nTesting Firestore videoUrl write...")
+
+# try:
+#     write_video_url(TEST_JOB_ID, signed_url)
+#     job = get_job(TEST_JOB_ID)
+#     stored_url = job.get("videoUrl", "")
+#     print(f"  Write OK — videoUrl stored in Firestore")
+#     print(f"  URL matches: {'PASS' if stored_url == signed_url else 'FAIL'}")
+# except Exception as e:
+#     print(f"  Firestore write FAILED: {e}")
+
+# print("\nManual browser test:")
+# print(f"  Copy the signed URL above and paste it into a browser tab.")
+# print(f"  The video should play directly — no login required.")
+# print(f"  If you see a 403: the URL expired or the file path is wrong.")
+# print(f"  If you see a CORS error: re-check Step 5 CORS config was applied.")
+
+# print("\nDay 3 tests complete.")
+
+
+
+
+
+
+
+
+
+
+
+
+
 from dotenv import load_dotenv
 load_dotenv()
 
-from services.storage import get_signed_url, build_gcs_path
-from services.firestore import write_video_url, get_job
+from models.schemas import progress_to_stage, PROGRESS_STAGES
+from services.firestore import (
+    create_job,
+    get_job,
+    mark_processing_started,
+    mark_processing_completed,
+    mark_processing_failed,
+    list_recent_jobs,
+)
 
-print("Testing signed URL generation...")
+print("Testing job lifecycle helpers...")
 
-# Use the GCS path from a previous scratch test upload
-# Replace with a real path from your GCS bucket
-TEST_JOB_ID = "scratch-w2d1-chunked"
-TEST_GCS_PATH = build_gcs_path(TEST_JOB_ID, "test-video.mp4")
+TEST_JOB_ID = "scratch-w2d5-lifecycle"
+TEST_GCS_PATH = f"raw-videos/{TEST_JOB_ID}/test.mp4"
 
-try:
-    signed_url = get_signed_url(TEST_GCS_PATH, expiration_minutes=15)
-    print(f"  Signed URL generated OK")
-    print(f"  URL starts with https://: {'PASS' if signed_url.startswith('https://') else 'FAIL'}")
-    print(f"  URL contains X-Goog-Signature: {'PASS' if 'X-Goog-Signature' in signed_url else 'FAIL'}")
-    print(f"  Full URL (first 120 chars): {signed_url[:120]}...")
-except Exception as e:
-    print(f"  Signed URL generation FAILED: {e}")
-    print("  Check: Token Creator role granted? Correct GCS path?")
+# Create
+create_job(TEST_JOB_ID, "test.mp4", TEST_GCS_PATH)
+job = get_job(TEST_JOB_ID)
+print(f"  Create OK — status: {job['status']}, progress: {job['progress']}")
+assert job["processingStartedAt"] is None, "processingStartedAt should be None on create"
 
-print("\nTesting Firestore videoUrl write...")
+# Start processing
+mark_processing_started(TEST_JOB_ID)
+job = get_job(TEST_JOB_ID)
+print(f"  Started OK — status: {job['status']}, progress: {job['progress']}")
+assert job["status"] == "processing"
+assert job["processingStartedAt"] is not None
 
-try:
-    write_video_url(TEST_JOB_ID, signed_url)
-    job = get_job(TEST_JOB_ID)
-    stored_url = job.get("videoUrl", "")
-    print(f"  Write OK — videoUrl stored in Firestore")
-    print(f"  URL matches: {'PASS' if stored_url == signed_url else 'FAIL'}")
-except Exception as e:
-    print(f"  Firestore write FAILED: {e}")
+# Complete
+mark_processing_completed(TEST_JOB_ID, processing_time_seconds=42)
+job = get_job(TEST_JOB_ID)
+print(f"  Completed OK — status: {job['status']}, processingTime: {job['processingTime']}s")
+assert job["status"] == "completed"
+assert job["processingTime"] == 42
+assert job["processingCompletedAt"] is not None
 
-print("\nManual browser test:")
-print(f"  Copy the signed URL above and paste it into a browser tab.")
-print(f"  The video should play directly — no login required.")
-print(f"  If you see a 403: the URL expired or the file path is wrong.")
-print(f"  If you see a CORS error: re-check Step 5 CORS config was applied.")
+# Test failure path (use a separate job)
+FAIL_JOB_ID = "scratch-w2d5-failed"
+create_job(FAIL_JOB_ID, "bad.mp4", f"raw-videos/{FAIL_JOB_ID}/bad.mp4")
+mark_processing_failed(FAIL_JOB_ID, "Video Intelligence API timed out")
+job = get_job(FAIL_JOB_ID)
+print(f"  Failed OK — status: {job['status']}, error: {job['errorMessage']}")
+assert job["status"] == "failed"
+assert "timed out" in job["errorMessage"]
 
-print("\nDay 3 tests complete.")
+# Test stage labels
+print("\nTesting stage label mapping...")
+for progress, expected in PROGRESS_STAGES.items():
+    label = progress_to_stage(progress)
+    status = "PASS" if label == expected else f"FAIL (got '{label}')"
+    print(f"  progress={progress:3d} → '{label}' [{status}]")
+
+# Test list_recent_jobs
+print("\nTesting list_recent_jobs...")
+recent = list_recent_jobs(limit=5)
+print(f"  Returned {len(recent)} jobs (limit=5)")
+if recent:
+    print(f"  Most recent job: {recent[0]['jobId']}")
+
+print("\nAll Day 5 tests passed.")
