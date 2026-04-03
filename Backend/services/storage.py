@@ -2,6 +2,10 @@ import os
 import logging
 from google.cloud import storage
 from fastapi import UploadFile
+import datetime
+import google.auth
+import google.auth.transport.requests
+from google.auth import impersonated_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -72,21 +76,16 @@ async def upload_to_gcs(
 
 
 def get_signed_url(gcs_path: str, expiration_minutes: int = 120) -> str:
-    """
-    Generate a time-limited signed URL for a GCS object.
+    source_credentials, project = google.auth.default()
+    source_credentials.refresh(google.auth.transport.requests.Request())
 
-    The URL allows unauthenticated GET access for expiration_minutes.
-    Used to give the frontend a streamable video URL without making
-    the bucket public.
+    target_credentials = impersonated_credentials.Credentials(
+        source_credentials=source_credentials,
+        target_principal="video-intelligence-sa@video-intelligence-v1.iam.gserviceaccount.com",
+        target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        lifetime=300,
+    )
 
-    Args:
-        gcs_path: GCS object path e.g. raw-videos/{jobId}/{filename}
-        expiration_minutes: How long the URL is valid (default 2 hours)
-
-    Returns:
-        A full HTTPS signed URL.
-    """
-    import datetime
     client = get_storage_client()
     bucket = client.bucket(BUCKET_NAME)
     blob = bucket.blob(gcs_path)
@@ -94,9 +93,11 @@ def get_signed_url(gcs_path: str, expiration_minutes: int = 120) -> str:
     url = blob.generate_signed_url(
         expiration=datetime.timedelta(minutes=expiration_minutes),
         method="GET",
-        version="v4"
+        version="v4",
+        credentials=target_credentials,
     )
     return url
+
 
 
 def delete_gcs_object(gcs_path: str) -> None:

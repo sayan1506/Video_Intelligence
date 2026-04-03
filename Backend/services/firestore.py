@@ -83,3 +83,24 @@ def update_upload_progress(job_id: str, upload_progress: int) -> None:
         "uploadProgress": upload_progress,
         "updatedAt": datetime.now(timezone.utc)
     })
+
+
+
+def write_video_url(job_id: str, video_url: str) -> None:
+    """
+    Write the signed GCS video URL to the job document.
+
+    Called immediately after GCS upload completes.
+    The frontend reads this from GET /status/{jobId} to feed
+    the Video.js player in Week 6.
+
+    Args:
+        job_id: The job to update.
+        video_url: The signed HTTPS URL for the uploaded video.
+    """
+    
+    db = get_db()
+    db.collection("jobs").document(job_id).update({
+        "videoUrl": video_url,
+        "updatedAt": datetime.now(timezone.utc),
+    })
