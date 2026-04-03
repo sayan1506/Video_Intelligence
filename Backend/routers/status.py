@@ -23,6 +23,8 @@ async def get_status(job_id: str):
         jobId=job["jobId"],
         status=job["status"],
         progress=job.get("progress", 0),
+        uploadProgress=job.get("uploadProgress", 0),
+        videoUrl=job.get("videoUrl"),   
         createdAt=job.get("createdAt"),
-        updatedAt=job.get("updatedAt")
+        updatedAt=job.get("updatedAt"),
     )

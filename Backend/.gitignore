@@ -13,4 +13,4 @@ __pycache__/
 .vscode/
 .idea/
 
-
+cors-config.json

@@ -12,6 +12,7 @@ class UploadResponse(BaseModel):
 class StatusResponse(BaseModel):
     jobId: str
     status: str
+    videoUrl: Optional[str] = None
     progress: int        # 0–100, overall pipeline progress
     uploadProgress: int = 0   # ← 0–100, GCS upload progress
     createdAt: Optional[datetime] = None

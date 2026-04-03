@@ -97,6 +97,17 @@ async def upload_video(file: UploadFile = File(...)):
         logger.error(f"[{job_id}] GCS upload unexpected error: {e}")
         firestore.update_job_status(job_id, "failed", error=str(e))
         raise HTTPException(status_code=500, detail="Upload failed unexpectedly.")
+    
+    # --- Step 2b: Generate signed URL and write to Firestore ---
+    try:
+        video_url = storage.get_signed_url(gcs_path, expiration_minutes=120)
+        firestore.write_video_url(job_id, video_url)
+        logger.info(f"[{job_id}] Signed URL written to Firestore")
+    except Exception as e:
+        # Non-fatal — video URL can be regenerated later
+        # Don't block the upload response over a URL generation failure
+        logger.warning(f"[{job_id}] Signed URL generation failed: {e}")
+
 
     # --- Step 3: Mark upload complete, update GCS path in Firestore ---
     try:

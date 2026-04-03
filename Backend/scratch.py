@@ -239,83 +239,134 @@
 
 
 
-import json
-import time
+# import json
+# import time
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# import os
+
+# from google.cloud import pubsub_v1
+# from models.schemas import JobMessage
+# from services.pubsub import publish_job_message, build_job_message
+
+# PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+# SUBSCRIPTION_ID = "video-processing-sub"
+
+# print("Testing Pub/Sub round-trip with JobMessage schema...")
+
+# # --- Publish ---
+# TEST_JOB_ID = "scratch-w2d2-pubsub"
+# TEST_GCS_PATH = f"raw-videos/{TEST_JOB_ID}/test.mp4"
+
+# msg_id = publish_job_message(
+#     job_id=TEST_JOB_ID,
+#     gcs_path=TEST_GCS_PATH,
+#     filename="test.mp4",
+#     file_size_bytes=52428800,   # 50MB dummy
+#     content_type="video/mp4",
+# )
+# print(f"  Publish OK — message ID: {msg_id}")
+
+# # Allow a moment for propagation
+# time.sleep(2)
+
+# # --- Pull and deserialise ---
+# subscriber = pubsub_v1.SubscriberClient()
+# subscription_path = subscriber.subscription_path(PROJECT_ID, SUBSCRIPTION_ID)
+
+# response = subscriber.pull(
+#     request={"subscription": subscription_path, "max_messages": 1}
+# )
+
+# if not response.received_messages:
+#     print("  No message received — try increasing the sleep duration")
+# else:
+#     received = response.received_messages[0]
+#     raw_payload = json.loads(received.message.data.decode("utf-8"))
+
+#     # Deserialise into Pydantic model
+#     job_message = JobMessage(**raw_payload)
+
+#     print(f"  Pull OK — jobId: {job_message.jobId}")
+#     print(f"  Schema version: {job_message.schemaVersion}")
+#     print(f"  GCS URI: {job_message.gcsUri}")
+#     print(f"  File size: {job_message.fileSizeMb}MB")
+#     print(f"  Attributes: {dict(received.message.attributes)}")
+
+#     # Validate round-trip integrity
+#     assert job_message.jobId == TEST_JOB_ID, "jobId mismatch!"
+#     assert job_message.gcsBucket == os.getenv("GCP_BUCKET_NAME"), "gcsBucket mismatch!"
+#     assert job_message.gcsUri.startswith("gs://"), "gcsUri missing gs:// prefix!"
+#     assert received.message.attributes.get("jobId") == TEST_JOB_ID, "Attribute jobId mismatch!"
+#     print("  All assertions passed — schema round-trip verified")
+
+#     # Ack the message
+#     subscriber.acknowledge(
+#         request={
+#             "subscription": subscription_path,
+#             "ack_ids": [received.ack_id],
+#         }
+#     )
+#     print("  Ack OK")
+
+# # --- Test retry logic (simulate a bad topic) ---
+# print("\nTesting retry logic...")
+# from services.pubsub import MAX_RETRIES, BACKOFF_BASE_SECONDS
+# print(f"  MAX_RETRIES: {MAX_RETRIES}")
+# print(f"  Backoff schedule: "
+#       f"{[BACKOFF_BASE_SECONDS * (2**i) for i in range(MAX_RETRIES)]}s")
+# print("  (Retry logic verified by config — live failure test would need a bad topic)")
+
+# print("\nPub/Sub Day 2 tests complete.")
+
+
+
+
+
+
+
+
+
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
-import os
+from services.storage import get_signed_url, build_gcs_path
+from services.firestore import write_video_url, get_job
 
-from google.cloud import pubsub_v1
-from models.schemas import JobMessage
-from services.pubsub import publish_job_message, build_job_message
+print("Testing signed URL generation...")
 
-PROJECT_ID = os.getenv("GCP_PROJECT_ID")
-SUBSCRIPTION_ID = "video-processing-sub"
+# Use the GCS path from a previous scratch test upload
+# Replace with a real path from your GCS bucket
+TEST_JOB_ID = "scratch-w2d1-chunked"
+TEST_GCS_PATH = build_gcs_path(TEST_JOB_ID, "test-video.mp4")
 
-print("Testing Pub/Sub round-trip with JobMessage schema...")
+try:
+    signed_url = get_signed_url(TEST_GCS_PATH, expiration_minutes=15)
+    print(f"  Signed URL generated OK")
+    print(f"  URL starts with https://: {'PASS' if signed_url.startswith('https://') else 'FAIL'}")
+    print(f"  URL contains X-Goog-Signature: {'PASS' if 'X-Goog-Signature' in signed_url else 'FAIL'}")
+    print(f"  Full URL (first 120 chars): {signed_url[:120]}...")
+except Exception as e:
+    print(f"  Signed URL generation FAILED: {e}")
+    print("  Check: Token Creator role granted? Correct GCS path?")
 
-# --- Publish ---
-TEST_JOB_ID = "scratch-w2d2-pubsub"
-TEST_GCS_PATH = f"raw-videos/{TEST_JOB_ID}/test.mp4"
+print("\nTesting Firestore videoUrl write...")
 
-msg_id = publish_job_message(
-    job_id=TEST_JOB_ID,
-    gcs_path=TEST_GCS_PATH,
-    filename="test.mp4",
-    file_size_bytes=52428800,   # 50MB dummy
-    content_type="video/mp4",
-)
-print(f"  Publish OK — message ID: {msg_id}")
+try:
+    write_video_url(TEST_JOB_ID, signed_url)
+    job = get_job(TEST_JOB_ID)
+    stored_url = job.get("videoUrl", "")
+    print(f"  Write OK — videoUrl stored in Firestore")
+    print(f"  URL matches: {'PASS' if stored_url == signed_url else 'FAIL'}")
+except Exception as e:
+    print(f"  Firestore write FAILED: {e}")
 
-# Allow a moment for propagation
-time.sleep(2)
+print("\nManual browser test:")
+print(f"  Copy the signed URL above and paste it into a browser tab.")
+print(f"  The video should play directly — no login required.")
+print(f"  If you see a 403: the URL expired or the file path is wrong.")
+print(f"  If you see a CORS error: re-check Step 5 CORS config was applied.")
 
-# --- Pull and deserialise ---
-subscriber = pubsub_v1.SubscriberClient()
-subscription_path = subscriber.subscription_path(PROJECT_ID, SUBSCRIPTION_ID)
-
-response = subscriber.pull(
-    request={"subscription": subscription_path, "max_messages": 1}
-)
-
-if not response.received_messages:
-    print("  No message received — try increasing the sleep duration")
-else:
-    received = response.received_messages[0]
-    raw_payload = json.loads(received.message.data.decode("utf-8"))
-
-    # Deserialise into Pydantic model
-    job_message = JobMessage(**raw_payload)
-
-    print(f"  Pull OK — jobId: {job_message.jobId}")
-    print(f"  Schema version: {job_message.schemaVersion}")
-    print(f"  GCS URI: {job_message.gcsUri}")
-    print(f"  File size: {job_message.fileSizeMb}MB")
-    print(f"  Attributes: {dict(received.message.attributes)}")
-
-    # Validate round-trip integrity
-    assert job_message.jobId == TEST_JOB_ID, "jobId mismatch!"
-    assert job_message.gcsBucket == os.getenv("GCP_BUCKET_NAME"), "gcsBucket mismatch!"
-    assert job_message.gcsUri.startswith("gs://"), "gcsUri missing gs:// prefix!"
-    assert received.message.attributes.get("jobId") == TEST_JOB_ID, "Attribute jobId mismatch!"
-    print("  All assertions passed — schema round-trip verified")
-
-    # Ack the message
-    subscriber.acknowledge(
-        request={
-            "subscription": subscription_path,
-            "ack_ids": [received.ack_id],
-        }
-    )
-    print("  Ack OK")
-
-# --- Test retry logic (simulate a bad topic) ---
-print("\nTesting retry logic...")
-from services.pubsub import MAX_RETRIES, BACKOFF_BASE_SECONDS
-print(f"  MAX_RETRIES: {MAX_RETRIES}")
-print(f"  Backoff schedule: "
-      f"{[BACKOFF_BASE_SECONDS * (2**i) for i in range(MAX_RETRIES)]}s")
-print("  (Retry logic verified by config — live failure test would need a bad topic)")
-
-print("\nPub/Sub Day 2 tests complete.")
+print("\nDay 3 tests complete.")
