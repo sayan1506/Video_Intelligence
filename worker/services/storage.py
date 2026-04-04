@@ -6,6 +6,8 @@ import datetime
 import google.auth
 import google.auth.transport.requests
 from google.auth import impersonated_credentials
+import json
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +109,43 @@ def delete_gcs_object(gcs_path: str) -> None:
     blob = bucket.blob(gcs_path)
     blob.delete()
     logger.info(f"Deleted GCS object: {gcs_path}")
+
+
+
+PROCESSED_PREFIX = "processed"
+
+
+async def write_processed_json(
+    job_id: str,
+    filename: str,
+    data: dict,
+) -> str:
+    """
+    Write a JSON-serialisable dict to GCS under processed/{jobId}/{filename}.
+
+    Used to persist raw API responses for debugging and reprocessing
+    without re-calling expensive AI APIs.
+
+    Args:
+        job_id: Job identifier — used as the GCS folder name.
+        filename: File name, e.g. "transcript.json", "video_intelligence.json".
+        data: Dict to serialise and write.
+
+    Returns:
+        GCS object path, e.g. processed/{jobId}/transcript.json
+    """
+    client = get_storage_client()
+    bucket = client.bucket(BUCKET_NAME)
+
+    destination_path = f"{PROCESSED_PREFIX}/{job_id}/{filename}"
+    blob = bucket.blob(destination_path)
+
+    # Run the synchronous GCS write in a thread pool to avoid blocking the event loop
+    json_bytes = json.dumps(data, indent=2, default=str).encode("utf-8")
+
+    await asyncio.get_event_loop().run_in_executor(
+        None,
+        lambda: blob.upload_from_string(json_bytes, content_type="application/json"),
+    )
+
+    return destination_path
