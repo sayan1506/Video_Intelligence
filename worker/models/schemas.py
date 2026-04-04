@@ -1,5 +1,25 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Dict, Any, Optional
+
+
+
+
+
+class WordTimestamp(BaseModel):
+    """A single transcribed word with timing and speaker information."""
+    word: str
+    startTime: float    # seconds from video start
+    endTime: float      # seconds from video start
+    speaker: int        # speaker tag (1 or 2 for V1 diarization)
+
+
+class Scene(BaseModel):
+    """A detected video scene with associated labels."""
+    startTime: float
+    endTime: float
+    confidence: float = 0.0
+    labels: List[str] = []
+
 
 class JobMessage(BaseModel):
     """

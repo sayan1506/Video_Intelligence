@@ -107,3 +107,33 @@ def delete_gcs_object(gcs_path: str) -> None:
     blob = bucket.blob(gcs_path)
     blob.delete()
     logger.info(f"Deleted GCS object: {gcs_path}")
+
+
+
+def get_signed_upload_url(
+    gcs_path: str,
+    content_type: str = "video/mp4",
+    expiration_minutes: int = 15,
+) -> str:
+    source_credentials, project = google.auth.default()
+    source_credentials.refresh(google.auth.transport.requests.Request())
+
+    target_credentials = impersonated_credentials.Credentials(
+        source_credentials=source_credentials,
+        target_principal="video-intelligence-sa@video-intelligence-v1.iam.gserviceaccount.com",
+        target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        lifetime=300,
+    )
+
+    client = get_storage_client()
+    bucket = client.bucket(BUCKET_NAME)
+    blob = bucket.blob(gcs_path)
+
+    url = blob.generate_signed_url(
+        expiration=datetime.timedelta(minutes=expiration_minutes),
+        method="PUT",            # ← was "GET"
+        content_type=content_type,  # ← required for PUT signed URLs
+        version="v4",
+        credentials=target_credentials,
+    )
+    return url
