@@ -15,98 +15,71 @@ logger = logging.getLogger(__name__)
 
 
 async def run_pipeline(job_message: JobMessage) -> bool:
-    """
-    Run all AI pipelines for a job and write results to Firestore.
-
-    Execution order:
-      Phase 1 (concurrent):  Speech-to-Text + Video Intelligence
-      Phase 2 (sequential):  Gemini summary (depends on Phase 1 outputs)
-      Phase 3 (sequential):  Write results to Firestore
-
-    Uses asyncio.gather(return_exceptions=True) for Phase 1 so a failure
-    in one pipeline does not cancel or discard the output of the other.
-
-    Args:
-        job_message: Validated JobMessage from the Pub/Sub subscriber.
-
-    Returns:
-        True if at least one pipeline succeeded and results were written.
-        False if all pipelines failed and the job was marked as failed.
-    """
     job_id = job_message.jobId
     gcs_uri = job_message.gcsUri
     start_time = time.time()
 
     logger.info(
         f"[{job_id}] Orchestrator started — "
-        f"file: {job_message.filename}, "
-        f"size: {job_message.fileSizeMb}MB"
+        f"file: {job_message.filename}, size: {job_message.fileSizeMb}MB"
     )
 
     # -----------------------------------------------------------------------
-    # Phase 1 — Concurrent Speech-to-Text + Video Intelligence
+    # Phase 1 — Concurrent STT + Video Intelligence
     # -----------------------------------------------------------------------
-    # Update progress to 35 — signals both pipelines are running
+
+    # progress=35 — both pipelines submitted and running
     firestore.update_job_status(job_id, "processing", progress=35)
-    logger.info(f"[{job_id}] Phase 1 — STT + Video Intelligence running concurrently")
+    logger.info(f"[{job_id}] Phase 1 — STT + VideoIntel running concurrently")
 
     phase1_results = await asyncio.gather(
-        transcribe(gcs_uri, job_id=job_id),
-        analyse_video(gcs_uri, job_id=job_id),
+        _run_stt_with_progress(gcs_uri, job_id),
+        _run_vi_with_progress(gcs_uri, job_id),
         return_exceptions=True,
     )
 
     transcript_result = phase1_results[0]
     scenes_result = phase1_results[1]
 
-    # --- Handle partial failures independently ---
-    transcript: List[Dict[str, Any]] = []
-    scenes: List[Dict[str, Any]] = []
+    transcript: list = []
+    scenes: list = []
     phase1_errors = []
 
     if isinstance(transcript_result, Exception):
-        error_msg = f"Speech-to-Text failed: {transcript_result}"
-        logger.error(f"[{job_id}] {error_msg}")
-        phase1_errors.append(error_msg)
+        logger.error(f"[{job_id}] STT failed: {transcript_result}")
+        phase1_errors.append(f"Speech-to-Text: {transcript_result}")
     else:
         transcript = transcript_result
-        logger.info(f"[{job_id}] STT complete — {len(transcript)} words transcribed")
-        firestore.update_job_status(job_id, "processing", progress=50)
+        logger.info(f"[{job_id}] STT complete — {len(transcript)} words")
 
     if isinstance(scenes_result, Exception):
-        error_msg = f"Video Intelligence failed: {scenes_result}"
-        logger.error(f"[{job_id}] {error_msg}")
-        phase1_errors.append(error_msg)
+        logger.error(f"[{job_id}] VideoIntel failed: {scenes_result}")
+        phase1_errors.append(f"Video Intelligence: {scenes_result}")
     else:
         scenes = scenes_result
-        logger.info(f"[{job_id}] Video Intelligence complete — {len(scenes)} scenes detected")
-        firestore.update_job_status(job_id, "processing", progress=75)
+        logger.info(f"[{job_id}] VideoIntel complete — {len(scenes)} scenes")
 
-    # If both pipelines failed there is nothing to write — mark job failed
     if len(phase1_errors) == 2:
-        combined_error = " | ".join(phase1_errors)
         firestore.mark_processing_failed(
             job_id,
-            f"Both Phase 1 pipelines failed: {combined_error}"
+            f"Both pipelines failed: {' | '.join(phase1_errors)}"
         )
-        logger.error(f"[{job_id}] Both pipelines failed — job marked as failed")
+        logger.error(f"[{job_id}] Both Phase 1 pipelines failed — job marked failed")
         return False
 
-    # Partial failure: log which pipeline failed but continue with available data
     if len(phase1_errors) == 1:
-        logger.warning(
-            f"[{job_id}] Partial failure — continuing with available data. "
-            f"Failed: {phase1_errors[0]}"
-        )
+        logger.warning(f"[{job_id}] Partial failure: {phase1_errors[0]}")
+
+    # Both done — set progress=75 regardless of which finished first
+    firestore.update_job_status(job_id, "processing", progress=75)
 
     # -----------------------------------------------------------------------
-    # Phase 2 — Gemini summary (stub today, real Vertex AI call in Week 4)
+    # Phase 2 — Gemini summary
     # -----------------------------------------------------------------------
+
     firestore.update_job_status(job_id, "processing", progress=90)
-    logger.info(f"[{job_id}] Phase 2 — Gemini summary generation")
+    logger.info(f"[{job_id}] Phase 2 — Gemini summary")
 
-    # Estimate duration from last scene end time
-    # Will be replaced with video metadata in a future iteration
     duration_seconds = int(scenes[-1]["endTime"]) if scenes else 0
 
     try:
@@ -116,10 +89,8 @@ async def run_pipeline(job_message: JobMessage) -> bool:
             duration_seconds=duration_seconds,
             job_id=job_id,
         )
-        logger.info(f"[{job_id}] Gemini phase complete")
     except Exception as e:
-        # Gemini failure is non-fatal — write what we have from Phase 1
-        logger.error(f"[{job_id}] Gemini pipeline failed: {e} — continuing without summary")
+        logger.error(f"[{job_id}] Gemini failed: {e} — continuing without summary")
         summary_data = {
             "summary": "Summary generation failed.",
             "chapters": [],
@@ -129,39 +100,63 @@ async def run_pipeline(job_message: JobMessage) -> bool:
         }
 
     # -----------------------------------------------------------------------
-    # Phase 3 — Write all results to Firestore
+    # Phase 3 — Write results to Firestore
     # -----------------------------------------------------------------------
-    logger.info(f"[{job_id}] Phase 3 — writing results to Firestore")
+
+    logger.info(f"[{job_id}] Phase 3 — writing results")
 
     try:
-        # Write transcript + scenes to results/{jobId}
-        firestore.write_results(
-            job_id=job_id,
-            transcript=transcript,
-            scenes=scenes,
-        )
+        firestore.write_results(job_id=job_id, transcript=transcript, scenes=scenes)
     except Exception as e:
-        logger.error(f"[{job_id}] Failed to write results to Firestore: {e}")
-        firestore.mark_processing_failed(job_id, f"Firestore results write failed: {e}")
+        logger.error(f"[{job_id}] Firestore write_results failed: {e}")
+        firestore.mark_processing_failed(job_id, f"Results write failed: {e}")
         return False
 
     try:
-        # Write summary to summaries/{jobId}
         firestore.write_summary(job_id=job_id, summary_data=summary_data)
     except Exception as e:
-        # Non-fatal — transcript and scenes are already written
-        logger.error(f"[{job_id}] Failed to write summary to Firestore: {e}")
+        logger.error(f"[{job_id}] Firestore write_summary failed (non-fatal): {e}")
 
-    # -----------------------------------------------------------------------
-    # Mark job as completed
-    # -----------------------------------------------------------------------
     elapsed = int(time.time() - start_time)
     firestore.mark_processing_completed(job_id, processing_time_seconds=elapsed)
 
     logger.info(
-        f"[{job_id}] Pipeline complete — "
-        f"elapsed: {elapsed}s, "
-        f"words: {len(transcript)}, "
-        f"scenes: {len(scenes)}"
+        f"[{job_id}] Pipeline complete — elapsed: {elapsed}s, "
+        f"words: {len(transcript)}, scenes: {len(scenes)}"
     )
     return True
+
+
+async def _run_stt_with_progress(gcs_uri: str, job_id: str) -> list:
+    """
+    Wrapper around transcribe() that fires a Firestore progress update
+    at progress=50 immediately after STT completes.
+
+    Kept separate from run_pipeline() so asyncio.gather() can still
+    run it concurrently with Video Intelligence.
+    """
+    result = await transcribe(gcs_uri, job_id=job_id)
+    try:
+        # Only update if STT finished first — VI may have already pushed to 75
+        # update_job_status with progress=None skips the progress field write,
+        # so we explicitly pass 50 here
+        firestore.update_job_status(job_id, "processing", progress=50)
+    except Exception:
+        pass   # Never fail the pipeline over a progress update
+    return result
+
+
+async def _run_vi_with_progress(gcs_uri: str, job_id: str) -> list:
+    """
+    Wrapper around analyse_video() that fires a Firestore progress update
+    at progress=60 immediately after Video Intelligence completes.
+
+    Uses 60 rather than 75 so STT and VI updates don't collide at 75.
+    The orchestrator sets 75 after both complete.
+    """
+    result = await analyse_video(gcs_uri, job_id=job_id)
+    try:
+        firestore.update_job_status(job_id, "processing", progress=60)
+    except Exception:
+        pass
+    return result

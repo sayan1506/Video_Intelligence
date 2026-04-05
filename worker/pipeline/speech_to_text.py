@@ -5,11 +5,13 @@ import asyncio
 import tempfile
 import subprocess
 from typing import List, Dict, Any
+import time as time_module
 
 from google.cloud.speech_v2 import SpeechClient
 from google.cloud.speech_v2.types import cloud_speech
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import storage as gcs_storage
+from google.api_core.exceptions import ServiceUnavailable, DeadlineExceeded
 
 from services.storage import write_processed_json
 
@@ -155,7 +157,7 @@ async def transcribe(
     logger.info(f"[{job_id}] STT v2: Polling for completion...")
 
     try:
-        response = operation.result(timeout=600)
+        response = _poll_operation_with_retry(operation, job_id=job_id, timeout=600)
     except Exception as e:
         logger.error(f"[{job_id}] STT v2: Operation failed: {e}")
         raise RuntimeError(f"Speech-to-Text operation failed: {e}") from e
@@ -200,3 +202,56 @@ async def transcribe(
         logger.warning(f"[{job_id}] STT v2: Failed to write raw output (non-fatal): {e}")
 
     return word_timestamps
+
+
+
+MAX_RETRIES = 2
+RETRY_BACKOFF_SECONDS = 5
+
+
+def _poll_operation_with_retry(operation, job_id: str, timeout: int = 600):
+    """
+    Poll a long-running GCP operation to completion with retry on transient errors.
+
+    Retries up to MAX_RETRIES times on ServiceUnavailable or DeadlineExceeded.
+    Raises immediately on any other exception — these are permanent failures.
+
+    Args:
+        operation: A long-running GCP operation object with a .result() method.
+        job_id: For logging.
+        timeout: Per-attempt timeout in seconds.
+
+    Returns:
+        The operation result.
+
+    Raises:
+        RuntimeError: After all retries exhausted.
+        Exception: On non-retryable errors.
+    """
+    last_exception = None
+
+    for attempt in range(1, MAX_RETRIES + 2):  # +2 = initial attempt + MAX_RETRIES
+        try:
+            return operation.result(timeout=timeout)
+        except (ServiceUnavailable, DeadlineExceeded) as e:
+            last_exception = e
+            if attempt <= MAX_RETRIES:
+                backoff = RETRY_BACKOFF_SECONDS * attempt
+                logger.warning(
+                    f"[{job_id}] Operation poll attempt {attempt} failed: {e}. "
+                    f"Retrying in {backoff}s..."
+                )
+                time_module.sleep(backoff)
+            else:
+                logger.error(
+                    f"[{job_id}] Operation poll failed after {MAX_RETRIES} retries: {e}"
+                )
+        except Exception as e:
+            # Non-retryable — raise immediately
+            logger.error(f"[{job_id}] Non-retryable operation error: {e}")
+            raise
+
+    raise RuntimeError(
+        f"[{job_id}] Operation failed after {MAX_RETRIES} retries. "
+        f"Last error: {last_exception}"
+    )

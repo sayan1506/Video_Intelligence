@@ -7,7 +7,8 @@ from concurrent.futures import TimeoutError
 from dotenv import load_dotenv
 
 load_dotenv()
-
+import threading
+from google.cloud import pubsub_v1
 from google.cloud import pubsub_v1
 from google.api_core.exceptions import GoogleAPICallError
 from pydantic import ValidationError
@@ -67,54 +68,135 @@ def deserialise_message(message: pubsub_v1.types.PubsubMessage) -> JobMessage | 
 # ---------------------------------------------------------------------------
 
 def process_message(message: pubsub_v1.types.PubsubMessage) -> None:
-    """
-    Pub/Sub streaming pull callback — called once per received message.
-    Runs the full AI pipeline synchronously (asyncio.run wraps the async orchestrator).
-    """
     job_id = message.attributes.get("jobId", "unknown")
     logger.info(f"[{job_id}] Message received")
 
-    # Deserialise
     job_message = deserialise_message(message)
     if job_message is None:
-        logger.error(f"[{job_id}] Malformed message — acking to prevent redelivery loop")
+        logger.error(f"[{job_id}] Malformed message — acking")
         message.ack()
         return
 
     logger.info(
         f"[{job_id}] JobMessage valid — "
-        f"file: {job_message.filename}, "
-        f"uri: {job_message.gcsUri}"
+        f"file: {job_message.filename}, uri: {job_message.gcsUri}"
     )
 
-    # Mark processing started in Firestore
     try:
         firestore.mark_processing_started(job_message.jobId)
     except Exception as e:
-        logger.error(f"[{job_id}] Firestore mark_processing_started failed: {e} — nacking")
+        logger.error(f"[{job_id}] mark_processing_started failed: {e} — nacking")
         message.nack()
         return
 
-    # Run the full AI pipeline
+    # --- Start ack deadline heartbeat ---
+    stop_heartbeat = threading.Event()
+    heartbeat_thread = _start_ack_heartbeat(
+        subscriber=_get_subscriber(),
+        subscription_path=_get_subscription_path(),
+        ack_id=message.ack_id,
+        job_id=job_id,
+        stop_event=stop_heartbeat,
+    )
+
+    # --- Run the full AI pipeline ---
     try:
         success = asyncio.run(run_pipeline(job_message))
     except Exception as e:
-        logger.error(f"[{job_id}] Orchestrator raised uncaught exception: {e}")
+        logger.error(f"[{job_id}] Uncaught orchestrator exception: {e}")
         try:
             firestore.mark_processing_failed(job_message.jobId, str(e))
         except Exception:
             pass
-        # Ack anyway — an uncaught exception won't fix itself on redelivery
-        message.ack()
-        return
+        success = False
+    finally:
+        # Always stop the heartbeat thread before acking/nacking
+        stop_heartbeat.set()
 
     if success:
-        logger.info(f"[{job_id}] Pipeline succeeded — acking message")
+        logger.info(f"[{job_id}] Pipeline succeeded — acking")
     else:
-        logger.warning(f"[{job_id}] Pipeline returned False (partial/full failure) — acking message")
+        logger.warning(f"[{job_id}] Pipeline failed — acking (failure recorded in Firestore)")
 
-    # Always ack — failures are handled inside the orchestrator via Firestore status updates
     message.ack()
+
+
+
+
+# How often to extend the ack deadline (seconds)
+ACK_EXTENSION_INTERVAL = 60
+
+# How much time to add per extension (seconds)
+# Must be <= subscription's max ack deadline (600s)
+ACK_EXTENSION_SECONDS = 300
+
+
+def _start_ack_heartbeat(
+    subscriber: pubsub_v1.SubscriberClient,
+    subscription_path: str,
+    ack_id: str,
+    job_id: str,
+    stop_event: threading.Event,
+) -> threading.Thread:
+    """
+    Start a background thread that periodically extends the Pub/Sub ack deadline.
+
+    Prevents Pub/Sub from redelivering the message while the AI pipeline runs.
+    The thread stops when stop_event is set — call stop_event.set() after
+    message.ack() or message.nack() to clean up.
+
+    Args:
+        subscriber: The Pub/Sub SubscriberClient.
+        subscription_path: Full subscription resource path.
+        ack_id: The ack_id of the message being processed.
+        job_id: For logging.
+        stop_event: threading.Event — set this to stop the heartbeat thread.
+
+    Returns:
+        The running Thread — caller does not need to join it explicitly.
+    """
+    def heartbeat():
+        while not stop_event.wait(timeout=ACK_EXTENSION_INTERVAL):
+            try:
+                subscriber.modify_ack_deadline(
+                    request={
+                        "subscription": subscription_path,
+                        "ack_ids": [ack_id],
+                        "ack_deadline_seconds": ACK_EXTENSION_SECONDS,
+                    }
+                )
+                logger.info(
+                    f"[{job_id}] Ack deadline extended by {ACK_EXTENSION_SECONDS}s"
+                )
+            except Exception as e:
+                logger.warning(f"[{job_id}] Ack deadline extension failed: {e}")
+
+    thread = threading.Thread(target=heartbeat, daemon=True)
+    thread.start()
+    return thread
+
+
+_subscriber_client: pubsub_v1.SubscriberClient | None = None
+_subscription_path_cached: str | None = None
+
+
+def _get_subscriber() -> pubsub_v1.SubscriberClient:
+    global _subscriber_client
+    if _subscriber_client is None:
+        _subscriber_client = pubsub_v1.SubscriberClient()
+    return _subscriber_client
+
+
+def _get_subscription_path() -> str:
+    global _subscription_path_cached
+    if _subscription_path_cached is None:
+        subscriber = _get_subscriber()
+        _subscription_path_cached = subscriber.subscription_path(
+            PROJECT_ID, SUBSCRIPTION_ID
+        )
+    return _subscription_path_cached
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -122,12 +204,10 @@ def process_message(message: pubsub_v1.types.PubsubMessage) -> None:
 # ---------------------------------------------------------------------------
 
 def main():
-    subscriber = pubsub_v1.SubscriberClient()
-    subscription_path = subscriber.subscription_path(PROJECT_ID, SUBSCRIPTION_ID)
+    subscriber = _get_subscriber()
+    subscription_path = _get_subscription_path()
 
     logger.info(f"Worker starting — subscribing to: {subscription_path}")
-    logger.info(f"Project: {PROJECT_ID}")
-    logger.info(f"Subscription: {SUBSCRIPTION_ID}")
 
     flow_control = pubsub_v1.types.FlowControl(max_messages=1)
 
@@ -141,10 +221,6 @@ def main():
 
     try:
         streaming_pull.result()
-    except TimeoutError:
-        streaming_pull.cancel()
-        streaming_pull.result()
-        logger.info("Worker timed out")
     except KeyboardInterrupt:
         streaming_pull.cancel()
         logger.info("Worker stopped by user")
