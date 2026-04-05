@@ -1,9 +1,8 @@
-
+import asyncio
 import json
 import logging
 import os
 import sys
-import time
 from concurrent.futures import TimeoutError
 from dotenv import load_dotenv
 
@@ -14,6 +13,7 @@ from google.api_core.exceptions import GoogleAPICallError
 from pydantic import ValidationError
 
 from models.schemas import JobMessage
+from pipeline.orchestrator import run_pipeline
 from services import firestore
 
 # ---------------------------------------------------------------------------
@@ -68,66 +68,53 @@ def deserialise_message(message: pubsub_v1.types.PubsubMessage) -> JobMessage | 
 
 def process_message(message: pubsub_v1.types.PubsubMessage) -> None:
     """
-    Pub/Sub streaming pull callback.
-    Called once per received message in a background thread.
-
-    Week 3 will replace the stub log with:
-        orchestrator.run(job_message)
-
-    Ack strategy:
-    - Malformed message  → ack immediately (prevent infinite redelivery)
-    - Valid message      → ack after successful processing
-    - Processing error   → nack (Pub/Sub will redeliver after ack deadline)
+    Pub/Sub streaming pull callback — called once per received message.
+    Runs the full AI pipeline synchronously (asyncio.run wraps the async orchestrator).
     """
     job_id = message.attributes.get("jobId", "unknown")
-    logger.info(f"[{job_id}] Message received — size: {len(message.data)} bytes")
+    logger.info(f"[{job_id}] Message received")
 
-    # --- Deserialise ---
+    # Deserialise
     job_message = deserialise_message(message)
-
     if job_message is None:
-        logger.error(
-            f"[{job_id}] Malformed message — acking to prevent infinite redelivery"
-        )
+        logger.error(f"[{job_id}] Malformed message — acking to prevent redelivery loop")
         message.ack()
         return
 
     logger.info(
-        f"[{job_id}] JobMessage validated — "
+        f"[{job_id}] JobMessage valid — "
         f"file: {job_message.filename}, "
-        f"size: {job_message.fileSizeMb}MB, "
         f"uri: {job_message.gcsUri}"
     )
 
-    # --- Update Firestore: mark as processing ---
+    # Mark processing started in Firestore
     try:
         firestore.mark_processing_started(job_message.jobId)
-        logger.info(f"[{job_id}] Firestore status → processing")
-    except GoogleAPICallError as e:
-        logger.error(f"[{job_id}] Firestore update failed: {e} — nacking message")
+    except Exception as e:
+        logger.error(f"[{job_id}] Firestore mark_processing_started failed: {e} — nacking")
         message.nack()
         return
 
-    # --- TODO (Week 3): Run AI pipelines ---
-    # Replace this block with:
-    #   from pipeline.orchestrator import run_pipeline
-    #   success = run_pipeline(job_message)
-    #
-    # For now, simulate a stub run
-    logger.info(f"[{job_id}] [STUB] AI pipeline would run here (Week 3)")
-    time.sleep(1)   # Simulate brief processing time
-
-    # --- Update Firestore: mark completed (stub) ---
+    # Run the full AI pipeline
     try:
-        firestore.mark_processing_completed(job_message.jobId, processing_time_seconds=1)
-        logger.info(f"[{job_id}] Firestore status → completed (stub)")
-    except GoogleAPICallError as e:
-        logger.error(f"[{job_id}] Firestore completion update failed: {e}")
-        # Don't nack — the pipeline "ran" — just log the Firestore failure
+        success = asyncio.run(run_pipeline(job_message))
+    except Exception as e:
+        logger.error(f"[{job_id}] Orchestrator raised uncaught exception: {e}")
+        try:
+            firestore.mark_processing_failed(job_message.jobId, str(e))
+        except Exception:
+            pass
+        # Ack anyway — an uncaught exception won't fix itself on redelivery
+        message.ack()
+        return
 
-    # --- Ack the message ---
+    if success:
+        logger.info(f"[{job_id}] Pipeline succeeded — acking message")
+    else:
+        logger.warning(f"[{job_id}] Pipeline returned False (partial/full failure) — acking message")
+
+    # Always ack — failures are handled inside the orchestrator via Firestore status updates
     message.ack()
-    logger.info(f"[{job_id}] Message acked successfully")
 
 
 # ---------------------------------------------------------------------------
@@ -142,8 +129,6 @@ def main():
     logger.info(f"Project: {PROJECT_ID}")
     logger.info(f"Subscription: {SUBSCRIPTION_ID}")
 
-    # Streaming pull — one message at a time for the stub worker.
-    # Week 3 will increase max_messages to allow concurrent pipeline runs.
     flow_control = pubsub_v1.types.FlowControl(max_messages=1)
 
     streaming_pull = subscriber.subscribe(
@@ -155,11 +140,10 @@ def main():
     logger.info("Worker is listening... (Ctrl+C to stop)")
 
     try:
-        # Block the main thread — subscriber runs callbacks in background threads
         streaming_pull.result()
     except TimeoutError:
         streaming_pull.cancel()
-        streaming_pull.result()   # Wait for clean shutdown
+        streaming_pull.result()
         logger.info("Worker timed out")
     except KeyboardInterrupt:
         streaming_pull.cancel()

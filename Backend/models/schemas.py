@@ -25,40 +25,47 @@ class WordTimestamp(BaseModel):
     word: str
     startTime: float
     endTime: float
-    speaker: int
+    speaker: int = 1    # Speaker diarization removed in STT v2 — default to 1
+
 
 class Scene(BaseModel):
     startTime: float
     endTime: float
     labels: List[str]
 
+
 class Chapter(BaseModel):
     title: str
     startTime: int
     endTime: int
+
 
 class Highlight(BaseModel):
     timestamp: float
     description: str
 
 
-
-
 class ResultResponse(BaseModel):
     jobId: str
     status: str
+
+    # From jobs/{jobId}
     videoUrl: Optional[str] = None
+    processingTime: Optional[int] = None
+    processingStartedAt: Optional[datetime] = None
+    processingCompletedAt: Optional[datetime] = None
+
+    # From results/{jobId} — populated after worker Phase 1 completes
     transcript: Optional[List[WordTimestamp]] = None
     scenes: Optional[List[Scene]] = None
+    labels: Optional[List[str]] = None       # flat unique label list across all scenes
+
+    # From summaries/{jobId} — populated after worker Phase 2 completes
     summary: Optional[str] = None
     chapters: Optional[List[Chapter]] = None
     highlights: Optional[List[Highlight]] = None
     sentiment: Optional[str] = None
-    processingTime: Optional[int] = None          
-    processingStartedAt: Optional[datetime] = None   
-    processingCompletedAt: Optional[datetime] = None 
-
-
+    actionItems: Optional[List[str]] = None
 
 
 class JobMessage(BaseModel):

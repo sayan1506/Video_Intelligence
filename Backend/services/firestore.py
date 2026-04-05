@@ -1,16 +1,56 @@
 import os
-from google.cloud import firestore
+import logging
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Dict, Any
 
+from google.cloud import firestore
+from google.api_core.exceptions import FailedPrecondition
+
+logger = logging.getLogger(__name__)
+
+# ── Singleton client ──────────────────────────────────────────────────────────
+# Instantiated once at module load. Cloud Run spins up one process per instance;
+# reusing a single client avoids repeated gRPC channel setup on every call.
+# ADC resolves via the attached service account — no JSON key needed.
+_db: firestore.Client | None = None
 
 
 def get_db() -> firestore.Client:
-    project_id = os.getenv("GCP_PROJECT_ID")  # read at call time
-    return firestore.Client(project=project_id)  # ADC
+    global _db
+    if _db is None:
+        project_id = os.getenv("GCP_PROJECT_ID")
+        _db = firestore.Client(project=project_id)
+    return _db
 
 
-def create_job(job_id: str, filename: str, gcs_path: str) -> dict:
+# ── Progress stage map ────────────────────────────────────────────────────────
+# Single source of truth for what "progress" means at each stage.
+# Worker and backend both read from this — no magic numbers scattered around.
+PROGRESS_STAGES: Dict[str, int] = {
+    "pending":    0,
+    "uploading":  10,
+    "processing": 25,
+    "stt_done":   50,
+    "vi_done":    75,
+    "gemini_done": 90,
+    "completed":  100,
+}
+
+
+def progress_for_stage(stage: str) -> int:
+    """Return the canonical progress integer for a named pipeline stage."""
+    return PROGRESS_STAGES.get(stage, 0)
+
+
+# ── Job lifecycle ─────────────────────────────────────────────────────────────
+
+def create_job(job_id: str, filename: str, gcs_path: str) -> str:
+    """
+    Create a new job document in Firestore.
+
+    Returns the job_id (string) rather than the raw document dict so callers
+    are never handed a dict containing non-JSON-serialisable datetime objects.
+    """
     db = get_db()
     now = datetime.now(timezone.utc)
 
@@ -21,43 +61,43 @@ def create_job(job_id: str, filename: str, gcs_path: str) -> dict:
         "gcsPath": gcs_path,
         "videoUrl": "",
         "uploadProgress": 0,
-        "progress": 0,
+        "progress": progress_for_stage("pending"),
         "createdAt": now,
         "updatedAt": now,
-        "processingStartedAt": None,    # ← set by worker when it starts
-        "processingCompletedAt": None,  # ← set by worker when done
-        "processingTime": 0,            # ← seconds, computed by worker
+        "processingStartedAt": None,
+        "processingCompletedAt": None,
+        "processingTime": 0,
         "errorMessage": "",
     }
 
     db.collection("jobs").document(job_id).set(job_data)
-    return job_data
+    logger.info(f"[{job_id}] Job document created — file: {filename}")
+    return job_id
 
 
 def get_job(job_id: str) -> dict | None:
-    """
-    Fetch a job document by ID. Returns None if not found.
-    """
+    """Fetch a job document by ID. Returns None if not found."""
     db = get_db()
     doc = db.collection("jobs").document(job_id).get()
-
-    if not doc.exists:
-        return None
-
-    return doc.to_dict()
+    return doc.to_dict() if doc.exists else None
 
 
-def update_job_status(job_id: str, status: str, progress: int = 0, error: str = "") -> None:
+def update_job_status(job_id: str, status: str, progress: int | None = None, error: str = "") -> None:
     """
-    Update just the status, progress, and updatedAt fields of a job.
-    Used by the worker in Week 3 — wiring it here now for completeness.
+    Update job status and optionally progress.
+
+    progress defaults to None (not written) rather than 0, preventing
+    silent progress resets when callers omit the argument.
+    Pass progress explicitly, or let the stage helpers below handle it.
     """
     db = get_db()
-    update_data = {
+    update_data: Dict[str, Any] = {
         "status": status,
-        "progress": progress,
-        "updatedAt": datetime.now(timezone.utc)
+        "updatedAt": datetime.now(timezone.utc),
     }
+
+    if progress is not None:
+        update_data["progress"] = progress
 
     if error:
         update_data["errorMessage"] = error
@@ -65,40 +105,24 @@ def update_job_status(job_id: str, status: str, progress: int = 0, error: str = 
     db.collection("jobs").document(job_id).update(update_data)
 
 
-
 def update_upload_progress(job_id: str, upload_progress: int) -> None:
     """
     Update the uploadProgress field of a job document.
-
     Called by the progress_callback during chunked GCS upload.
-    Kept as a lightweight update — only touches two fields.
-
-    Args:
-        job_id: The job to update.
-        upload_progress: Integer 0–100 representing GCS upload completion.
     """
-    from datetime import datetime, timezone
     db = get_db()
     db.collection("jobs").document(job_id).update({
         "uploadProgress": upload_progress,
-        "updatedAt": datetime.now(timezone.utc)
+        "updatedAt": datetime.now(timezone.utc),
     })
-
 
 
 def write_video_url(job_id: str, video_url: str) -> None:
     """
     Write the signed GCS video URL to the job document.
-
     Called immediately after GCS upload completes.
-    The frontend reads this from GET /status/{jobId} to feed
-    the Video.js player in Week 6.
-
-    Args:
-        job_id: The job to update.
-        video_url: The signed HTTPS URL for the uploaded video.
+    The frontend reads this from GET /status/{jobId} to feed the video player.
     """
-    
     db = get_db()
     db.collection("jobs").document(job_id).update({
         "videoUrl": video_url,
@@ -106,21 +130,17 @@ def write_video_url(job_id: str, video_url: str) -> None:
     })
 
 
-
 def mark_processing_started(job_id: str) -> None:
     """
-    Mark a job as started processing.
-    Called by the worker at the beginning of the AI pipeline.
-
-    Sets status → "processing", progress → 25,
-    and records processingStartedAt timestamp.
+    Mark a job as started.
+    Sets status → "processing", progress → 25 (from stage map),
+    and records processingStartedAt.
     """
-    from datetime import datetime, timezone
     db = get_db()
     now = datetime.now(timezone.utc)
     db.collection("jobs").document(job_id).update({
         "status": "processing",
-        "progress": 25,
+        "progress": progress_for_stage("processing"),
         "processingStartedAt": now,
         "updatedAt": now,
     })
@@ -129,17 +149,14 @@ def mark_processing_started(job_id: str) -> None:
 def mark_processing_completed(job_id: str, processing_time_seconds: int) -> None:
     """
     Mark a job as completed.
-    Called by the worker after all AI pipelines finish and results are written.
-
-    Sets status → "completed", progress → 100,
+    Sets status → "completed", progress → 100 (from stage map),
     and records processingCompletedAt + processingTime.
     """
-    from datetime import datetime, timezone
     db = get_db()
     now = datetime.now(timezone.utc)
     db.collection("jobs").document(job_id).update({
         "status": "completed",
-        "progress": 100,
+        "progress": progress_for_stage("completed"),
         "processingCompletedAt": now,
         "processingTime": processing_time_seconds,
         "updatedAt": now,
@@ -149,47 +166,91 @@ def mark_processing_completed(job_id: str, processing_time_seconds: int) -> None
 def mark_processing_failed(job_id: str, error_message: str) -> None:
     """
     Mark a job as failed.
-    Called by the worker if any AI pipeline raises an unrecoverable error.
-
     Sets status → "failed" and records the error message for debugging.
     """
-    from datetime import datetime, timezone
     db = get_db()
-    now = datetime.now(timezone.utc)
     db.collection("jobs").document(job_id).update({
         "status": "failed",
         "errorMessage": error_message,
-        "updatedAt": now,
+        "updatedAt": datetime.now(timezone.utc),
     })
-
-
-
-
 
 
 def list_recent_jobs(limit: int = 20) -> List[dict]:
     """
     Fetch the most recently created jobs, newest first.
 
-    Used by the frontend history page (Week 5) and for admin debugging.
-    Requires a Firestore composite index on (createdAt DESC) — Firestore
-    will log an index creation URL the first time this query runs if
-    the index doesn't exist yet.
+    Requires a Firestore composite index on (createdAt DESC).
+    Firestore will raise FailedPrecondition (not just log) if the index
+    doesn't exist — that exception is caught and re-raised with an
+    actionable message so it surfaces cleanly in Cloud Logging.
 
     Args:
-        limit: Maximum number of jobs to return (default 20, max 100).
-
-    Returns:
-        List of job document dicts ordered by createdAt descending.
+        limit: Maximum jobs to return (default 20, capped at 100).
     """
     db = get_db()
-    limit = min(limit, 100)   # Hard cap to prevent runaway reads
+    limit = min(limit, 100)
 
-    docs = (
-        db.collection("jobs")
-        .order_by("createdAt", direction=firestore.Query.DESCENDING)
-        .limit(limit)
-        .stream()
-    )
+    try:
+        docs = (
+            db.collection("jobs")
+            .order_by("createdAt", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream()
+        )
+        return [doc.to_dict() for doc in docs]
 
-    return [doc.to_dict() for doc in docs]
+    except FailedPrecondition as e:
+        # Firestore requires a composite index for this query.
+        # Check Cloud Logging for the index creation URL.
+        logger.error(
+            f"list_recent_jobs() failed — Firestore composite index missing. "
+            f"Check Cloud Logging for the index creation URL. Original error: {e}"
+        )
+        raise
+
+
+
+def get_result(job_id: str) -> dict | None:
+    """
+    Fetch the AI pipeline results document for a completed job.
+
+    Reads from the results/{jobId} collection written by the worker orchestrator.
+    Returns None if the document doesn't exist yet (job still processing).
+
+    Args:
+        job_id: The job identifier.
+
+    Returns:
+        Dict with keys: transcript, scenes, labels — or None if not found.
+    """
+    db = get_db()
+    doc = db.collection("results").document(job_id).get()
+
+    if not doc.exists:
+        return None
+
+    return doc.to_dict()
+
+
+def get_summary(job_id: str) -> dict | None:
+    """
+    Fetch the Gemini summary document for a completed job.
+
+    Reads from the summaries/{jobId} collection written by the worker Gemini stage.
+    Returns None if not found — summary may not exist if Gemini pipeline failed
+    or if this is a legacy job from before Week 4.
+
+    Args:
+        job_id: The job identifier.
+
+    Returns:
+        Dict with keys: summary, chapters, highlights, sentiment, actionItems — or None.
+    """
+    db = get_db()
+    doc = db.collection("summaries").document(job_id).get()
+
+    if not doc.exists:
+        return None
+
+    return doc.to_dict()
