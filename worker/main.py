@@ -17,6 +17,26 @@ from models.schemas import JobMessage
 from pipeline.orchestrator import run_pipeline
 from services import firestore
 
+
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"ok")
+    
+    def log_message(self, format, *args):
+        pass  # suppress access logs
+
+def start_health_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    logger.info(f"Health server started on port {port}")
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -204,6 +224,7 @@ def _get_subscription_path() -> str:
 # ---------------------------------------------------------------------------
 
 def main():
+    start_health_server()
     subscriber = _get_subscriber()
     subscription_path = _get_subscription_path()
 

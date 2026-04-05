@@ -383,66 +383,195 @@
 
 
 
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# from models.schemas import progress_to_stage, PROGRESS_STAGES
+# from services.firestore import (
+#     create_job,
+#     get_job,
+#     mark_processing_started,
+#     mark_processing_completed,
+#     mark_processing_failed,
+#     list_recent_jobs,
+# )
+
+# print("Testing job lifecycle helpers...")
+
+# TEST_JOB_ID = "scratch-w2d5-lifecycle"
+# TEST_GCS_PATH = f"raw-videos/{TEST_JOB_ID}/test.mp4"
+
+# # Create
+# create_job(TEST_JOB_ID, "test.mp4", TEST_GCS_PATH)
+# job = get_job(TEST_JOB_ID)
+# print(f"  Create OK — status: {job['status']}, progress: {job['progress']}")
+# assert job["processingStartedAt"] is None, "processingStartedAt should be None on create"
+
+# # Start processing
+# mark_processing_started(TEST_JOB_ID)
+# job = get_job(TEST_JOB_ID)
+# print(f"  Started OK — status: {job['status']}, progress: {job['progress']}")
+# assert job["status"] == "processing"
+# assert job["processingStartedAt"] is not None
+
+# # Complete
+# mark_processing_completed(TEST_JOB_ID, processing_time_seconds=42)
+# job = get_job(TEST_JOB_ID)
+# print(f"  Completed OK — status: {job['status']}, processingTime: {job['processingTime']}s")
+# assert job["status"] == "completed"
+# assert job["processingTime"] == 42
+# assert job["processingCompletedAt"] is not None
+
+# # Test failure path (use a separate job)
+# FAIL_JOB_ID = "scratch-w2d5-failed"
+# create_job(FAIL_JOB_ID, "bad.mp4", f"raw-videos/{FAIL_JOB_ID}/bad.mp4")
+# mark_processing_failed(FAIL_JOB_ID, "Video Intelligence API timed out")
+# job = get_job(FAIL_JOB_ID)
+# print(f"  Failed OK — status: {job['status']}, error: {job['errorMessage']}")
+# assert job["status"] == "failed"
+# assert "timed out" in job["errorMessage"]
+
+# # Test stage labels
+# print("\nTesting stage label mapping...")
+# for progress, expected in PROGRESS_STAGES.items():
+#     label = progress_to_stage(progress)
+#     status = "PASS" if label == expected else f"FAIL (got '{label}')"
+#     print(f"  progress={progress:3d} → '{label}' [{status}]")
+
+# # Test list_recent_jobs
+# print("\nTesting list_recent_jobs...")
+# recent = list_recent_jobs(limit=5)
+# print(f"  Returned {len(recent)} jobs (limit=5)")
+# if recent:
+#     print(f"  Most recent job: {recent[0]['jobId']}")
+
+# print("\nAll Day 5 tests passed.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import time
+import requests
 from dotenv import load_dotenv
+import os
+
 load_dotenv()
 
-from models.schemas import progress_to_stage, PROGRESS_STAGES
-from services.firestore import (
-    create_job,
-    get_job,
-    mark_processing_started,
-    mark_processing_completed,
-    mark_processing_failed,
-    list_recent_jobs,
-)
+BASE_URL = "https://vidiq-api-172064784971.us-central1.run.app"
 
-print("Testing job lifecycle helpers...")
+print("=" * 60)
+print("Week 3 Day 7 — ResultResponse contract verification")
+print("=" * 60)
 
-TEST_JOB_ID = "scratch-w2d5-lifecycle"
-TEST_GCS_PATH = f"raw-videos/{TEST_JOB_ID}/test.mp4"
+# Use a known completed job from a recent pipeline run
+# Replace with a real job ID that shows status=completed in Firestore
+COMPLETED_JOB_ID = "216e8a02-228e-47ef-ab7b-44dd6fe3d0e7"
 
-# Create
-create_job(TEST_JOB_ID, "test.mp4", TEST_GCS_PATH)
-job = get_job(TEST_JOB_ID)
-print(f"  Create OK — status: {job['status']}, progress: {job['progress']}")
-assert job["processingStartedAt"] is None, "processingStartedAt should be None on create"
+print(f"Fetching result for job: {COMPLETED_JOB_ID}")
+response = requests.get(f"{BASE_URL}/result/{COMPLETED_JOB_ID}")
+assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+data = response.json()
 
-# Start processing
-mark_processing_started(TEST_JOB_ID)
-job = get_job(TEST_JOB_ID)
-print(f"  Started OK — status: {job['status']}, progress: {job['progress']}")
-assert job["status"] == "processing"
-assert job["processingStartedAt"] is not None
+print(f"Status code: {response.status_code}")
+print()
 
-# Complete
-mark_processing_completed(TEST_JOB_ID, processing_time_seconds=42)
-job = get_job(TEST_JOB_ID)
-print(f"  Completed OK — status: {job['status']}, processingTime: {job['processingTime']}s")
-assert job["status"] == "completed"
-assert job["processingTime"] == 42
-assert job["processingCompletedAt"] is not None
+# --- Core fields ---
+print("Checking core fields...")
+assert data["jobId"] == COMPLETED_JOB_ID, "jobId mismatch"
+assert data["status"] == "completed", f"Expected completed, got {data['status']}"
+print("  jobId: PASS")
+print("  status: PASS")
 
-# Test failure path (use a separate job)
-FAIL_JOB_ID = "scratch-w2d5-failed"
-create_job(FAIL_JOB_ID, "bad.mp4", f"raw-videos/{FAIL_JOB_ID}/bad.mp4")
-mark_processing_failed(FAIL_JOB_ID, "Video Intelligence API timed out")
-job = get_job(FAIL_JOB_ID)
-print(f"  Failed OK — status: {job['status']}, error: {job['errorMessage']}")
-assert job["status"] == "failed"
-assert "timed out" in job["errorMessage"]
+# --- Metadata fields ---
+print("Checking metadata fields...")
+assert "videoUrl" in data, "Missing videoUrl"
+assert data["videoUrl"] and data["videoUrl"].startswith("https://"), \
+    f"videoUrl should be an https URL, got: {data['videoUrl']}"
+assert isinstance(data.get("processingTime"), int), "processingTime should be int"
+print(f"  videoUrl: PASS ({data['videoUrl'][:60]}...)")
+print(f"  processingTime: PASS ({data['processingTime']}s)")
 
-# Test stage labels
-print("\nTesting stage label mapping...")
-for progress, expected in PROGRESS_STAGES.items():
-    label = progress_to_stage(progress)
-    status = "PASS" if label == expected else f"FAIL (got '{label}')"
-    print(f"  progress={progress:3d} → '{label}' [{status}]")
+# --- Transcript ---
+print("Checking transcript...")
+transcript = data.get("transcript")
+assert isinstance(transcript, list), "transcript should be a list"
+assert len(transcript) > 0, "transcript should not be empty"
+first_word = transcript[0]
+assert "word" in first_word, "WordTimestamp missing 'word'"
+assert "startTime" in first_word, "WordTimestamp missing 'startTime'"
+assert "endTime" in first_word, "WordTimestamp missing 'endTime'"
+assert "speaker" in first_word, "WordTimestamp missing 'speaker'"
+assert isinstance(first_word["startTime"], float), "startTime should be float"
+print(f"  transcript: PASS ({len(transcript)} words, first: '{first_word['word']}')")
 
-# Test list_recent_jobs
-print("\nTesting list_recent_jobs...")
-recent = list_recent_jobs(limit=5)
-print(f"  Returned {len(recent)} jobs (limit=5)")
-if recent:
-    print(f"  Most recent job: {recent[0]['jobId']}")
+# --- Scenes ---
+print("Checking scenes...")
+scenes = data.get("scenes")
+assert isinstance(scenes, list), "scenes should be a list"
+assert len(scenes) > 0, "scenes should not be empty"
+first_scene = scenes[0]
+assert "startTime" in first_scene, "Scene missing 'startTime'"
+assert "endTime" in first_scene, "Scene missing 'endTime'"
+assert "labels" in first_scene, "Scene missing 'labels'"
+assert isinstance(first_scene["labels"], list), "labels should be a list"
+print(f"  scenes: PASS ({len(scenes)} scenes, first labels: {first_scene['labels'][:3]})")
 
-print("\nAll Day 5 tests passed.")
+# --- Labels ---
+print("Checking labels...")
+labels = data.get("labels")
+assert isinstance(labels, list), "labels should be a list"
+assert len(labels) > 0, "labels should not be empty"
+assert all(isinstance(l, str) for l in labels), "all labels should be strings"
+print(f"  labels: PASS ({len(labels)} unique labels)")
+
+# --- Summary fields ---
+print("Checking summary fields...")
+assert "summary" in data, "Missing summary field"
+assert isinstance(data["summary"], str) and len(data["summary"]) > 0, \
+    "summary should be a non-empty string"
+print(f"  summary: PASS (length: {len(data['summary'])} chars)")
+
+assert "chapters" in data, "Missing chapters"
+chapters = data["chapters"]
+assert isinstance(chapters, list) and len(chapters) > 0, "chapters should be non-empty list"
+first_chapter = chapters[0]
+assert "title" in first_chapter, "Chapter missing 'title'"
+assert "startTime" in first_chapter, "Chapter missing 'startTime'"
+assert "endTime" in first_chapter, "Chapter missing 'endTime'"
+print(f"  chapters: PASS ({len(chapters)} chapters)")
+
+assert "highlights" in data, "Missing highlights"
+highlights = data["highlights"]
+assert isinstance(highlights, list), "highlights should be a list"
+if highlights:
+    first_hl = highlights[0]
+    assert "timestamp" in first_hl, "Highlight missing 'timestamp'"
+    assert "description" in first_hl, "Highlight missing 'description'"
+print(f"  highlights: PASS ({len(highlights)} highlights)")
+
+assert "sentiment" in data, "Missing sentiment"
+assert data["sentiment"] in ["positive", "neutral", "negative"], \
+    f"sentiment must be positive/neutral/negative, got: {data['sentiment']}"
+print(f"  sentiment: PASS ({data['sentiment']})")
+
+assert "actionItems" in data, "Missing actionItems"
+assert isinstance(data["actionItems"], list), "actionItems should be a list"
+print(f"  actionItems: PASS ({len(data['actionItems'])} items)")
+
+print()
+print("=" * 60)
+print("ALL CONTRACT ASSERTIONS PASSED")
+print("ResultResponse shape is verified and ready for frontend build (Week 5)")
+print("=" * 60)
