@@ -6,7 +6,7 @@ import tempfile
 import subprocess
 from typing import List, Dict, Any
 import time as time_module
-
+import shutil
 from google.cloud.speech_v2 import SpeechClient
 from google.cloud.speech_v2.types import cloud_speech
 from google.api_core.exceptions import GoogleAPICallError
@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "video-intelligence-v1")
 BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "video-intelligence-raw")
-FFMPEG_PATH = r"C:\Program Files\DownloadHelper CoApp\ffmpeg.exe"
+
+FFMPEG_PATH = shutil.which("ffmpeg") or "ffmpeg"
 
 
 def get_speech_client() -> SpeechClient:
