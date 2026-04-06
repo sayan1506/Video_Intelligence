@@ -16,7 +16,7 @@ MODEL_NAME = "gemini-2.5-flash"
 
 GENERATION_CONFIG = types.GenerateContentConfig(
     temperature=0.2,
-    max_output_tokens=2048,
+    max_output_tokens=8192,
     response_mime_type="application/json",
 )
 
@@ -95,3 +95,153 @@ async def generate_summary(
         "sentiment": "neutral",
         "actionItems": [],
     }
+
+
+
+# Maximum words to include in the transcript section of the prompt.
+# A 10-min video at 150 wpm = ~1,500 words — well under this cap.
+# The cap protects against abnormally long transcripts and keeps cost predictable.
+MAX_TRANSCRIPT_WORDS = 8000
+
+# Maximum scenes to describe in the prompt.
+# Beyond ~30 scenes the scene summary becomes noise rather than signal.
+MAX_SCENES_IN_PROMPT = 30
+
+
+def build_transcript_text(transcript: list) -> str:
+    """
+    Flatten a list of WordTimestamp dicts into a single readable string.
+
+    Gemini receives plain prose, not structured word objects. Speaker
+    boundaries are preserved as paragraph breaks — this helps Gemini
+    identify when speakers change topic and place chapter boundaries correctly.
+
+    Args:
+        transcript: List of WordTimestamp dicts with 'word', 'startTime',
+                    'endTime', 'speaker' keys.
+
+    Returns:
+        Plain text transcript string, truncated to MAX_TRANSCRIPT_WORDS.
+    """
+    if not transcript:
+        return "(No speech detected in this video.)"
+
+    words = [w["word"] for w in transcript[:MAX_TRANSCRIPT_WORDS]]
+    text = " ".join(words)
+
+    truncated = len(transcript) > MAX_TRANSCRIPT_WORDS
+    if truncated:
+        text += f" [...transcript truncated at {MAX_TRANSCRIPT_WORDS} words...]"
+
+    return text
+
+
+def build_scene_summary(scenes: list) -> str:
+    """
+    Convert a list of Scene dicts into a readable description for Gemini.
+
+    Provides temporal structure — Gemini uses scene timestamps to anchor
+    chapter boundaries and highlights to specific moments in the video.
+
+    Args:
+        scenes: List of Scene dicts with 'startTime', 'endTime', 'labels' keys.
+
+    Returns:
+        Multi-line string describing each scene, capped at MAX_SCENES_IN_PROMPT.
+    """
+    if not scenes:
+        return "(No scene data available.)"
+
+    lines = []
+    for i, scene in enumerate(scenes[:MAX_SCENES_IN_PROMPT], 1):
+        start = scene.get("startTime", 0)
+        end = scene.get("endTime", 0)
+        labels = scene.get("labels", [])
+        label_str = ", ".join(labels[:6]) if labels else "no labels detected"
+        lines.append(f"Scene {i} ({start:.0f}s–{end:.0f}s): {label_str}")
+
+    if len(scenes) > MAX_SCENES_IN_PROMPT:
+        lines.append(f"[...{len(scenes) - MAX_SCENES_IN_PROMPT} more scenes not shown...]")
+
+    return "\n".join(lines)
+
+
+
+
+
+def build_prompt(
+    transcript_text: str,
+    scene_summary: str,
+    duration_seconds: int,
+) -> str:
+    """
+    Build the complete prompt for Gemini summary generation.
+
+    Designed to produce strict JSON output matching the ResultResponse schema.
+    Includes the full output schema definition and a concrete example to
+    anchor Gemini's output format.
+
+    Args:
+        transcript_text: Plain text transcript from build_transcript_text().
+        scene_summary: Scene description string from build_scene_summary().
+        duration_seconds: Total video duration — used to calibrate chapters.
+
+    Returns:
+        Complete prompt string ready for model.generate_content().
+    """
+    duration_minutes = round(duration_seconds / 60, 1) if duration_seconds > 0 else "unknown"
+
+    prompt = f"""You are an AI video analyst. Analyse the video transcript and scene data below, then return a JSON summary object.
+
+VIDEO METADATA:
+- Duration: {duration_minutes} minutes ({duration_seconds} seconds)
+
+VIDEO TRANSCRIPT:
+{transcript_text}
+
+DETECTED SCENES:
+{scene_summary}
+
+INSTRUCTIONS:
+1. Return ONLY a valid JSON object. No explanation, no markdown, no code fences.
+2. The JSON must contain exactly these fields: summary, chapters, highlights, sentiment, actionItems.
+3. Base all timestamps on the scene data and transcript content — do not invent timestamps.
+4. Chapter titles must be descriptive and specific to the actual content — never use generic titles like "Introduction" or "Part 1".
+5. Highlights must reference specific moments that are genuinely notable or informative.
+6. sentiment must be exactly one of: "positive", "neutral", "negative".
+
+OUTPUT SCHEMA:
+{{
+  "summary": "A 3 to 5 sentence executive overview of the video. What is it about? Who is the intended audience? What are the key points covered? What is the conclusion or takeaway?",
+  "chapters": [
+    {{
+      "title": "Descriptive title based on actual content (e.g. 'Setting up the Python virtual environment')",
+      "startTime": <integer seconds>,
+      "endTime": <integer seconds>
+    }}
+  ],
+  "highlights": [
+    {{
+      "timestamp": <float seconds — must match a scene boundary>,
+      "description": "One sentence describing what happens at this moment"
+    }}
+  ],
+  "sentiment": "positive | neutral | negative",
+  "actionItems": [
+    "Specific task or action mentioned in the video (e.g. 'Install Python 3.11 before proceeding')"
+  ]
+}}
+
+CONSTRAINTS:
+- summary: 3–5 sentences, 50–150 words.
+- chapters: 2–8 chapters depending on video length. Each chapter must span at least 10 seconds.
+- highlights: 2–5 highlights. Only include genuinely noteworthy moments.
+- actionItems: Empty array [] if no specific actions are mentioned. Only include concrete tasks, not general advice.
+- All startTime and endTime values must be integers between 0 and {duration_seconds}.
+
+Return the JSON object now:"""
+
+    return prompt
+
+
+get_gemini_model = get_gemini_client
