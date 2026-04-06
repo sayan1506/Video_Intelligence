@@ -247,72 +247,236 @@
 
 
 
+# import os
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# from pipeline.gemini import get_gemini_client, GENERATION_CONFIG, MODEL_NAME
+# from google.genai import types
+# import json, time
+
+# print("=" * 60)
+# print("Week 4 Day 1 — Vertex AI / Gemini API connectivity test")
+# print("=" * 60)
+# print(f"Project: {os.getenv('GCP_PROJECT_ID')}")
+# print(f"Location: us-central1")
+# print(f"Model: {MODEL_NAME}")
+# print()
+
+# client = get_gemini_client()
+
+# # Test 1 — Basic call
+# print("Test 1 — Basic API call...")
+# start = time.time()
+# response = client.models.generate_content(
+#     model=MODEL_NAME,
+#     contents="Say hello in exactly one word.",
+# )
+# elapsed = time.time() - start
+# print(f"  Response: '{response.text.strip()}'")
+# print(f"  Latency: {elapsed:.2f}s")
+# print(f"  Finish reason: {response.candidates[0].finish_reason}")
+# print()
+
+# # Test 2 — JSON mode
+# print("Test 2 — JSON mode call...")
+# start = time.time()
+# json_response = client.models.generate_content(
+#     model=MODEL_NAME,
+#     contents='Return ONLY this JSON object, no markdown: {"message": "hello world", "number": 42, "success": true}',
+#     config=GENERATION_CONFIG,
+# )
+# elapsed = time.time() - start
+# raw_text = json_response.text.strip()
+# print(f"  Raw response: {raw_text}")
+# print(f"  Latency: {elapsed:.2f}s")
+# try:
+#     parsed = json.loads(raw_text)
+#     print(f"  json.loads() success: PASS")
+#     print(f"  Fields present: {list(parsed.keys())}")
+# except json.JSONDecodeError as e:
+#     print(f"  json.loads() FAILED: {e}")
+# print()
+
+# # Test 3 — Token usage
+# print("Test 3 — Token usage metadata...")
+# usage = json_response.usage_metadata
+# print(f"  Input tokens:  {usage.prompt_token_count}")
+# print(f"  Output tokens: {usage.candidates_token_count}")
+# print(f"  Total tokens:  {usage.total_token_count}")
+# print()
+
+# # Test 4 — Finish reason
+# print("Test 4 — Finish reason check...")
+# finish_reason = str(json_response.candidates[0].finish_reason)
+# print(f"  Finish reason: {finish_reason}")
+# print("  Normal completion: PASS" if "STOP" in finish_reason else f"  Unexpected: {finish_reason}")
+
+# print()
+# print("=" * 60)
+# print("All Day 1 Vertex AI tests complete.")
+# print("=" * 60)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from pipeline.gemini import get_gemini_client, GENERATION_CONFIG, MODEL_NAME
-from google.genai import types
-import json, time
+from google.cloud import firestore
+
+PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+
+def load_job_data(job_id: str) -> dict:
+    """
+    Load transcript and scenes from Firestore for a completed job.
+    Use this for prompt testing — real data surfaces real edge cases.
+    """
+    db = firestore.Client(project=PROJECT_ID)
+
+    results_doc = db.collection("results").document(job_id).get()
+    if not results_doc.exists:
+        raise ValueError(f"No results document found for job {job_id}")
+
+    data = results_doc.to_dict()
+    transcript = data.get("transcript", [])
+    scenes = data.get("scenes", [])
+
+    jobs_doc = db.collection("jobs").document(job_id).get()
+    processing_time = jobs_doc.to_dict().get("processingTime", 0) if jobs_doc.exists else 0
+
+    print(f"Loaded job {job_id}:")
+    print(f"  Transcript words: {len(transcript)}")
+    print(f"  Scenes: {len(scenes)}")
+    print(f"  Processing time: {processing_time}s")
+
+    return {
+        "transcript": transcript,
+        "scenes": scenes,
+        "duration_seconds": processing_time,
+    }
+
+REAL_JOB_ID = "5ad8cb9f-4503-4bb8-a02f-4b76c52506c4"
+job_data = load_job_data(REAL_JOB_ID)
+
+
+import json
+import time
+from pipeline.gemini import (
+    get_gemini_model,
+    GENERATION_CONFIG,
+    MODEL_NAME,
+    build_transcript_text,
+    build_scene_summary,
+    build_prompt,
+)
 
 print("=" * 60)
-print("Week 4 Day 1 — Vertex AI / Gemini API connectivity test")
+print("Week 4 Day 2 — Prompt engineering test")
 print("=" * 60)
-print(f"Project: {os.getenv('GCP_PROJECT_ID')}")
-print(f"Location: us-central1")
-print(f"Model: {MODEL_NAME}")
 print()
 
-client = get_gemini_client()
+transcript_text = build_transcript_text(job_data["transcript"])
+scene_text = build_scene_summary(job_data["scenes"])
+duration = job_data["duration_seconds"]
 
-# Test 1 — Basic call
-print("Test 1 — Basic API call...")
+prompt = build_prompt(transcript_text, scene_text, duration)
+
+print(f"Prompt stats:")
+print(f"  Transcript words: {len(job_data['transcript'])}")
+print(f"  Scenes: {len(job_data['scenes'])}")
+print(f"  Duration: {duration}s")
+print(f"  Prompt length: {len(prompt)} chars")
+print()
+print("Sending to Gemini...")
+print()
+
+client = get_gemini_model()
+
 start = time.time()
 response = client.models.generate_content(
     model=MODEL_NAME,
-    contents="Say hello in exactly one word.",
-)
-elapsed = time.time() - start
-print(f"  Response: '{response.text.strip()}'")
-print(f"  Latency: {elapsed:.2f}s")
-print(f"  Finish reason: {response.candidates[0].finish_reason}")
-print()
-
-# Test 2 — JSON mode
-print("Test 2 — JSON mode call...")
-start = time.time()
-json_response = client.models.generate_content(
-    model=MODEL_NAME,
-    contents='Return ONLY this JSON object, no markdown: {"message": "hello world", "number": 42, "success": true}',
+    contents=prompt,
     config=GENERATION_CONFIG,
 )
 elapsed = time.time() - start
-raw_text = json_response.text.strip()
-print(f"  Raw response: {raw_text}")
-print(f"  Latency: {elapsed:.2f}s")
+
+print(f"Response received in {elapsed:.2f}s")
+print()
+
+finish_reason = response.candidates[0].finish_reason.name
+print(f"Finish reason: {finish_reason}")
+
+if finish_reason == "SAFETY":
+    print("SAFETY BLOCK — response was filtered. Review prompt content.")
+    exit(1)
+
+if finish_reason == "MAX_TOKENS":
+    print("MAX_TOKENS — response was cut off. Increase max_output_tokens or shorten prompt.")
+
+usage = response.usage_metadata
+print(f"Tokens — input: {usage.prompt_token_count}, output: {usage.candidates_token_count}")
+print()
+
+raw = response.text.strip()
+print("Raw response:")
+print("-" * 40)
+print(raw)
+print("-" * 40)
+print()
+
+print("Parsing response...")
 try:
-    parsed = json.loads(raw_text)
-    print(f"  json.loads() success: PASS")
-    print(f"  Fields present: {list(parsed.keys())}")
+    parsed = json.loads(raw)
+    print("json.loads(): PASS")
 except json.JSONDecodeError as e:
-    print(f"  json.loads() FAILED: {e}")
+    print(f"json.loads() FAILED: {e}")
+    print("The prompt needs adjustment to produce clean JSON.")
+    exit(1)
+
+required_fields = ["summary", "chapters", "highlights", "sentiment", "actionItems"]
+for field in required_fields:
+    present = field in parsed
+    print(f"  '{field}' present: {'PASS' if present else 'FAIL'}")
+
 print()
 
-# Test 3 — Token usage
-print("Test 3 — Token usage metadata...")
-usage = json_response.usage_metadata
-print(f"  Input tokens:  {usage.prompt_token_count}")
-print(f"  Output tokens: {usage.candidates_token_count}")
-print(f"  Total tokens:  {usage.total_token_count}")
+print("Content quality review:")
+print(f"  Summary ({len(parsed.get('summary', '').split())} words):")
+print(f"    {parsed.get('summary', '(missing)')[:200]}")
 print()
 
-# Test 4 — Finish reason
-print("Test 4 — Finish reason check...")
-finish_reason = str(json_response.candidates[0].finish_reason)
-print(f"  Finish reason: {finish_reason}")
-print("  Normal completion: PASS" if "STOP" in finish_reason else f"  Unexpected: {finish_reason}")
+chapters = parsed.get("chapters", [])
+print(f"  Chapters ({len(chapters)}):")
+for ch in chapters:
+    print(f"    [{ch.get('startTime', '?')}s–{ch.get('endTime', '?')}s] {ch.get('title', '(no title)')}")
+print()
+
+highlights = parsed.get("highlights", [])
+print(f"  Highlights ({len(highlights)}):")
+for hl in highlights:
+    print(f"    @{hl.get('timestamp', '?')}s — {hl.get('description', '(no description)')}")
+print()
+
+print(f"  Sentiment: {parsed.get('sentiment', '(missing)')}")
+action_items = parsed.get("actionItems", [])
+print(f"  Action items ({len(action_items)}):")
+for item in action_items:
+    print(f"    - {item}")
 
 print()
 print("=" * 60)
-print("All Day 1 Vertex AI tests complete.")
+print("Prompt test complete. Review the content quality above.")
+print("If chapters are generic or highlights are weak, iterate the prompt in Step 5.")
 print("=" * 60)
