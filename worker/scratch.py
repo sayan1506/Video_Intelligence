@@ -185,52 +185,134 @@
 
 # worker/scratch.py — Week 3 Day 5 failure test
 
-import asyncio
+# import asyncio
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# from pipeline.orchestrator import run_pipeline
+# from models.schemas import JobMessage
+# from services.firestore import get_db
+
+# print("Testing failed pipeline (bad GCS URI)...")
+
+# JOB_ID = "scratch-w3d5-failure-test"
+
+# db = get_db()
+# db.collection("jobs").document(JOB_ID).set({
+#     "jobId": JOB_ID,
+#     "status": "queued",
+#     "progress": 0,
+#     "filename": "nonexistent.mp4",
+#     "createdAt": None,
+# })
+# print(f"Job document seeded: {JOB_ID}")
+
+# bad_message = JobMessage(
+#     jobId=JOB_ID,
+#     gcsPath="raw-videos/nonexistent/video.mp4",
+#     gcsBucket="video-intelligence-raw",
+#     gcsUri="gs://video-intelligence-raw/raw-videos/nonexistent/video.mp4",
+#     filename="nonexistent.mp4",
+#     fileSizeMb=0.0,
+#     contentType="video/mp4",
+#     uploadedAt="2024-01-01T00:00:00Z",
+#     schemaVersion="1",
+# )
+
+# result = asyncio.run(run_pipeline(bad_message))
+# print(f"run_pipeline returned: {result}")
+# print("Expected: False (both pipelines failed)")
+
+# doc = db.collection("jobs").document(JOB_ID).get()
+# job = doc.to_dict() if doc.exists else None
+
+# if job:
+#     print(f"Firestore status: {job['status']}")
+#     print(f"Firestore errorMessage: {job.get('errorMessage', '(empty)')}")
+#     assert job["status"] == "failed", f"Expected status=failed, got {job['status']}"
+#     assert job.get("errorMessage"), "Expected non-empty errorMessage"
+#     print("Failure path assertions: PASS")
+# else:
+#     print("Job document not found")
+
+
+
+
+
+
+
+
+
+
+
+
+
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from pipeline.orchestrator import run_pipeline
-from models.schemas import JobMessage
-from services.firestore import get_db
+from pipeline.gemini import get_gemini_client, GENERATION_CONFIG, MODEL_NAME
+from google.genai import types
+import json, time
 
-print("Testing failed pipeline (bad GCS URI)...")
+print("=" * 60)
+print("Week 4 Day 1 — Vertex AI / Gemini API connectivity test")
+print("=" * 60)
+print(f"Project: {os.getenv('GCP_PROJECT_ID')}")
+print(f"Location: us-central1")
+print(f"Model: {MODEL_NAME}")
+print()
 
-JOB_ID = "scratch-w3d5-failure-test"
+client = get_gemini_client()
 
-db = get_db()
-db.collection("jobs").document(JOB_ID).set({
-    "jobId": JOB_ID,
-    "status": "queued",
-    "progress": 0,
-    "filename": "nonexistent.mp4",
-    "createdAt": None,
-})
-print(f"Job document seeded: {JOB_ID}")
-
-bad_message = JobMessage(
-    jobId=JOB_ID,
-    gcsPath="raw-videos/nonexistent/video.mp4",
-    gcsBucket="video-intelligence-raw",
-    gcsUri="gs://video-intelligence-raw/raw-videos/nonexistent/video.mp4",
-    filename="nonexistent.mp4",
-    fileSizeMb=0.0,
-    contentType="video/mp4",
-    uploadedAt="2024-01-01T00:00:00Z",
-    schemaVersion="1",
+# Test 1 — Basic call
+print("Test 1 — Basic API call...")
+start = time.time()
+response = client.models.generate_content(
+    model=MODEL_NAME,
+    contents="Say hello in exactly one word.",
 )
+elapsed = time.time() - start
+print(f"  Response: '{response.text.strip()}'")
+print(f"  Latency: {elapsed:.2f}s")
+print(f"  Finish reason: {response.candidates[0].finish_reason}")
+print()
 
-result = asyncio.run(run_pipeline(bad_message))
-print(f"run_pipeline returned: {result}")
-print("Expected: False (both pipelines failed)")
+# Test 2 — JSON mode
+print("Test 2 — JSON mode call...")
+start = time.time()
+json_response = client.models.generate_content(
+    model=MODEL_NAME,
+    contents='Return ONLY this JSON object, no markdown: {"message": "hello world", "number": 42, "success": true}',
+    config=GENERATION_CONFIG,
+)
+elapsed = time.time() - start
+raw_text = json_response.text.strip()
+print(f"  Raw response: {raw_text}")
+print(f"  Latency: {elapsed:.2f}s")
+try:
+    parsed = json.loads(raw_text)
+    print(f"  json.loads() success: PASS")
+    print(f"  Fields present: {list(parsed.keys())}")
+except json.JSONDecodeError as e:
+    print(f"  json.loads() FAILED: {e}")
+print()
 
-doc = db.collection("jobs").document(JOB_ID).get()
-job = doc.to_dict() if doc.exists else None
+# Test 3 — Token usage
+print("Test 3 — Token usage metadata...")
+usage = json_response.usage_metadata
+print(f"  Input tokens:  {usage.prompt_token_count}")
+print(f"  Output tokens: {usage.candidates_token_count}")
+print(f"  Total tokens:  {usage.total_token_count}")
+print()
 
-if job:
-    print(f"Firestore status: {job['status']}")
-    print(f"Firestore errorMessage: {job.get('errorMessage', '(empty)')}")
-    assert job["status"] == "failed", f"Expected status=failed, got {job['status']}"
-    assert job.get("errorMessage"), "Expected non-empty errorMessage"
-    print("Failure path assertions: PASS")
-else:
-    print("Job document not found")
+# Test 4 — Finish reason
+print("Test 4 — Finish reason check...")
+finish_reason = str(json_response.candidates[0].finish_reason)
+print(f"  Finish reason: {finish_reason}")
+print("  Normal completion: PASS" if "STOP" in finish_reason else f"  Unexpected: {finish_reason}")
+
+print()
+print("=" * 60)
+print("All Day 1 Vertex AI tests complete.")
+print("=" * 60)

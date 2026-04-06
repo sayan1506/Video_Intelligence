@@ -1,7 +1,42 @@
+# worker/pipeline/gemini.py
+
+import json
 import logging
-from typing import List, Dict, Any
+import os
+from typing import List, Dict, Any, Optional
+
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
+
+PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+LOCATION = "us-central1"
+MODEL_NAME = "gemini-2.5-flash"
+
+GENERATION_CONFIG = types.GenerateContentConfig(
+    temperature=0.2,
+    max_output_tokens=2048,
+    response_mime_type="application/json",
+)
+
+_client: genai.Client | None = None
+
+
+def get_gemini_client() -> genai.Client:
+    """
+    Return an initialised Gemini client using Vertex AI backend.
+    Lazy init — ADC handles auth automatically.
+    """
+    global _client
+    if _client is None:
+        _client = genai.Client(
+            vertexai=True,
+            project=PROJECT_ID,
+            location=LOCATION,
+        )
+        logger.info(f"Gemini client initialised — project: {PROJECT_ID}, location: {LOCATION}, model: {MODEL_NAME}")
+    return _client
 
 
 async def generate_summary(
