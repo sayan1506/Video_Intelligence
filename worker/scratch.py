@@ -374,7 +374,7 @@ job_data = load_job_data(REAL_JOB_ID)
 import json
 import time
 from pipeline.gemini import (
-    get_gemini_model,
+    get_gemini_client,
     GENERATION_CONFIG,
     MODEL_NAME,
     build_transcript_text,
@@ -402,7 +402,7 @@ print()
 print("Sending to Gemini...")
 print()
 
-client = get_gemini_model()
+client = get_gemini_client()
 
 start = time.time()
 response = client.models.generate_content(
@@ -479,4 +479,140 @@ print()
 print("=" * 60)
 print("Prompt test complete. Review the content quality above.")
 print("If chapters are generic or highlights are weak, iterate the prompt in Step 5.")
+print("=" * 60)
+
+
+
+
+
+
+
+
+
+
+
+import asyncio
+from pipeline.gemini import generate_summary, parse_gemini_response
+
+print("=" * 60)
+print("Week 4 Day 3 — generate_summary() full pipeline test")
+print("=" * 60)
+print()
+
+# Load real job data (reuse the loader from Day 2)
+transcript = job_data["transcript"]
+scenes = job_data["scenes"]
+duration = job_data["duration_seconds"]
+
+print("Running generate_summary() with real data...")
+start = time.time()
+result = asyncio.run(generate_summary(
+    transcript=transcript,
+    scenes=scenes,
+    duration_seconds=duration,
+    job_id="scratch-w4d3-test",
+))
+elapsed = time.time() - start
+
+print(f"Completed in {elapsed:.2f}s")
+print()
+
+# --- Assertions ---
+print("Running assertions...")
+
+assert isinstance(result, dict), "Result must be a dict"
+print("  Result is dict: PASS")
+
+required = ["summary", "chapters", "highlights", "sentiment", "actionItems"]
+for field in required:
+    assert field in result, f"Missing field: {field}"
+print("  All required fields present: PASS")
+
+assert isinstance(result["summary"], str) and len(result["summary"]) > 10, \
+    "Summary must be a non-empty string"
+print(f"  Summary is string: PASS ({len(result['summary'])} chars)")
+
+assert isinstance(result["chapters"], list), "Chapters must be a list"
+for ch in result["chapters"]:
+    assert "title" in ch and "startTime" in ch and "endTime" in ch, \
+        f"Chapter missing fields: {ch}"
+    assert isinstance(ch["startTime"], int), f"startTime must be int: {ch['startTime']}"
+    assert isinstance(ch["endTime"], int), f"endTime must be int: {ch['endTime']}"
+    assert ch["startTime"] < ch["endTime"], \
+        f"startTime must be < endTime: {ch['startTime']} >= {ch['endTime']}"
+print(f"  Chapters valid: PASS ({len(result['chapters'])} chapters)")
+
+assert isinstance(result["highlights"], list), "Highlights must be a list"
+for hl in result["highlights"]:
+    assert "timestamp" in hl and "description" in hl, f"Highlight missing fields: {hl}"
+    assert isinstance(hl["timestamp"], float), f"timestamp must be float: {hl['timestamp']}"
+print(f"  Highlights valid: PASS ({len(result['highlights'])} highlights)")
+
+assert result["sentiment"] in {"positive", "neutral", "negative"}, \
+    f"Invalid sentiment: {result['sentiment']}"
+print(f"  Sentiment valid: PASS ({result['sentiment']})")
+
+assert isinstance(result["actionItems"], list), "actionItems must be a list"
+print(f"  actionItems valid: PASS ({len(result['actionItems'])} items)")
+
+print()
+print("All assertions passed.")
+print()
+
+# --- Parser robustness tests (no API calls) ---
+print("Running parser robustness tests...")
+
+# Test: missing fields
+minimal = {"summary": "A test summary with enough words to pass the length check."}
+parsed_minimal = parse_gemini_response(json.dumps(minimal), job_id="test-minimal")
+assert parsed_minimal["chapters"] == [], "Missing chapters should default to []"
+assert parsed_minimal["sentiment"] == "neutral", "Missing sentiment should default to neutral"
+print("  Missing fields use safe defaults: PASS")
+
+# Test: wrong types get coerced
+wrong_types = {
+    "summary": "Valid summary text here with enough length to pass.",
+    "chapters": [{"title": "Ch1", "startTime": "10", "endTime": "45.5"}],
+    "highlights": [{"timestamp": "30", "description": "Some moment"}],
+    "sentiment": "Positive",
+    "actionItems": ["Do something"],
+}
+parsed_types = parse_gemini_response(json.dumps(wrong_types), job_id="test-types")
+assert isinstance(parsed_types["chapters"][0]["startTime"], int), \
+    "startTime should be coerced to int"
+assert isinstance(parsed_types["chapters"][0]["endTime"], int), \
+    "endTime should be coerced to int"
+assert isinstance(parsed_types["highlights"][0]["timestamp"], float), \
+    "timestamp should be coerced to float"
+assert parsed_types["sentiment"] == "positive", \
+    "Capitalised sentiment should be normalised"
+print("  Wrong types coerced correctly: PASS")
+
+# Test: invalid JSON returns fallback
+invalid_json = "This is not JSON at all."
+parsed_invalid = parse_gemini_response(invalid_json, job_id="test-invalid")
+assert "summary" in parsed_invalid, "Fallback must have summary field"
+print("  Invalid JSON returns fallback: PASS")
+
+# Test: degenerate chapter (startTime >= endTime) is skipped
+degenerate_chapters = {
+    "summary": "Long enough summary text here to pass the minimum length check.",
+    "chapters": [
+        {"title": "Good chapter", "startTime": 0, "endTime": 30},
+        {"title": "Bad chapter", "startTime": 50, "endTime": 50},  # equal — skip
+        {"title": "Backwards", "startTime": 100, "endTime": 50},  # reversed — skip
+    ],
+    "highlights": [],
+    "sentiment": "neutral",
+    "actionItems": [],
+}
+parsed_degenerate = parse_gemini_response(json.dumps(degenerate_chapters), job_id="test-degenerate")
+assert len(parsed_degenerate["chapters"]) == 1, \
+    f"Should only keep 1 valid chapter, got {len(parsed_degenerate['chapters'])}"
+print("  Degenerate chapters filtered out: PASS")
+
+print()
+print("=" * 60)
+print("All Week 4 Day 3 tests passed.")
+print("generate_summary() is ready for orchestrator wiring.")
 print("=" * 60)
