@@ -477,7 +477,7 @@ print("=" * 60)
 
 # Use a known completed job from a recent pipeline run
 # Replace with a real job ID that shows status=completed in Firestore
-COMPLETED_JOB_ID = "216e8a02-228e-47ef-ab7b-44dd6fe3d0e7"
+COMPLETED_JOB_ID = "1aa7d624-b818-4a02-8ff1-fd24432ab2dc"
 
 print(f"Fetching result for job: {COMPLETED_JOB_ID}")
 response = requests.get(f"{BASE_URL}/result/{COMPLETED_JOB_ID}")
