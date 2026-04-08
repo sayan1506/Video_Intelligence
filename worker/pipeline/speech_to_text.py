@@ -158,7 +158,7 @@ async def transcribe(
     logger.info(f"[{job_id}] STT v2: Polling for completion...")
 
     try:
-        response = _poll_operation_with_retry(operation, job_id=job_id, timeout=600)
+        response = _poll_operation_with_retry(operation, job_id=job_id, timeout=1800)
     except Exception as e:
         logger.error(f"[{job_id}] STT v2: Operation failed: {e}")
         raise RuntimeError(f"Speech-to-Text operation failed: {e}") from e
@@ -210,7 +210,7 @@ MAX_RETRIES = 2
 RETRY_BACKOFF_SECONDS = 5
 
 
-def _poll_operation_with_retry(operation, job_id: str, timeout: int = 600):
+def _poll_operation_with_retry(operation, job_id: str, timeout: int = 1800):
     """
     Poll a long-running GCP operation to completion with retry on transient errors.
 

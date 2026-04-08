@@ -99,11 +99,11 @@ async def generate_summary(
 # Maximum words to include in the transcript section of the prompt.
 # A 10-min video at 150 wpm = ~1,500 words — well under this cap.
 # The cap protects against abnormally long transcripts and keeps cost predictable.
-MAX_TRANSCRIPT_WORDS = 8000
+MAX_TRANSCRIPT_WORDS = 15000
 
 # Maximum scenes to describe in the prompt.
-# Beyond ~30 scenes the scene summary becomes noise rather than signal.
-MAX_SCENES_IN_PROMPT = 30
+# Beyond ~100 scenes the scene summary becomes noise rather than signal.
+MAX_SCENES_IN_PROMPT = 100
 
 
 def build_transcript_text(transcript: list) -> str:
@@ -150,16 +150,24 @@ def build_scene_summary(scenes: list) -> str:
     if not scenes:
         return "(No scene data available.)"
 
+    # REPLACE with:
+    labeled = [s for s in scenes if s.get("labels")]
+    unlabeled_sampled = scenes[::max(1, len(scenes) // 20)]
+    combined = sorted(
+        {s["startTime"]: s for s in unlabeled_sampled + labeled}.values(),
+        key=lambda s: s["startTime"]
+    )
+
     lines = []
-    for i, scene in enumerate(scenes[:MAX_SCENES_IN_PROMPT], 1):
+    for i, scene in enumerate(combined[:MAX_SCENES_IN_PROMPT], 1):
         start = scene.get("startTime", 0)
         end = scene.get("endTime", 0)
         labels = scene.get("labels", [])
         label_str = ", ".join(labels[:6]) if labels else "no labels detected"
         lines.append(f"Scene {i} ({start:.0f}s–{end:.0f}s): {label_str}")
 
-    if len(scenes) > MAX_SCENES_IN_PROMPT:
-        lines.append(f"[...{len(scenes) - MAX_SCENES_IN_PROMPT} more scenes not shown...]")
+    if len(combined) > MAX_SCENES_IN_PROMPT:
+        lines.append(f"[...{len(combined) - MAX_SCENES_IN_PROMPT} more scenes not shown...]")
 
     return "\n".join(lines)
 
