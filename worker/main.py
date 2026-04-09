@@ -5,6 +5,7 @@ import os
 import sys
 from concurrent.futures import TimeoutError
 from dotenv import load_dotenv
+import signal 
 
 load_dotenv()
 import threading
@@ -223,6 +224,8 @@ def _get_subscription_path() -> str:
 # Subscriber entry point
 # ---------------------------------------------------------------------------
 
+
+
 def main():
     start_health_server()
     subscriber = _get_subscriber()
@@ -238,6 +241,16 @@ def main():
         flow_control=flow_control,
     )
 
+    # ← ADD THIS BLOCK
+    def handle_sigterm(signum, frame):
+        logger.info("SIGTERM received — shutting down worker gracefully")
+        streaming_pull.cancel()
+        subscriber.close()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    # ← END ADD
+
     logger.info("Worker is listening... (Ctrl+C to stop)")
 
     try:
@@ -249,7 +262,6 @@ def main():
         streaming_pull.cancel()
         logger.error(f"Worker crashed: {e}")
         raise
-
 
 if __name__ == "__main__":
     main()
