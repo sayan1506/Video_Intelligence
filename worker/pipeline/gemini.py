@@ -9,6 +9,7 @@ from google import genai
 from google.genai import types
 import time as time_module
 from google.api_core.exceptions import ServiceUnavailable, ResourceExhausted
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +17,11 @@ PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 LOCATION = "us-central1"
 MODEL_NAME = "gemini-2.5-flash"
 
+
+
 GENERATION_CONFIG = types.GenerateContentConfig(
     temperature=0.2,
-    max_output_tokens=8192,
+    max_output_tokens=10000,
     response_mime_type="application/json",
 )
 
@@ -129,7 +132,7 @@ def build_transcript_text(transcript: list) -> str:
 
     truncated = len(transcript) > MAX_TRANSCRIPT_WORDS
     if truncated:
-        text += f" [...transcript truncated at {MAX_TRANSCRIPT_WORDS} words...]"
+        text += f" (truncated at {MAX_TRANSCRIPT_WORDS} words)"
 
     return text
 
@@ -195,6 +198,18 @@ def build_prompt(
     Returns:
         Complete prompt string ready for model.generate_content().
     """
+
+    word_count = len(transcript_text.split())
+    was_truncated = "(truncated" in transcript_text
+
+    if was_truncated:
+        logger.warning(
+            f"Transcript was truncated to {MAX_TRANSCRIPT_WORDS} words. "
+            f"Original length exceeded the cap — review video length constraints."
+        )
+    else:
+        logger.info(f"Prompt transcript: {word_count} words")
+
     duration_minutes = round(duration_seconds / 60, 1) if duration_seconds > 0 else "unknown"
 
     prompt = f"""You are an AI video analyst. Analyse the video transcript and scene data below, then return a JSON summary object.
@@ -528,11 +543,20 @@ def _call_gemini_with_retry(
 
             # Log token usage on every successful call
             usage = response.usage_metadata
+            input_tokens = usage.prompt_token_count
+            output_tokens = usage.candidates_token_count
+
             logger.info(
                 f"[{job_id}] Gemini call OK (attempt {attempt}) — "
-                f"input tokens: {usage.prompt_token_count}, "
-                f"output tokens: {usage.candidates_token_count}"
+                f"input tokens: {input_tokens}, "
+                f"output tokens: {output_tokens}, "
+                f"est. cost: ${round((input_tokens * 0.0000035) + (output_tokens * 0.0000105), 6)}"
             )
+            try:
+                from services.firestore import write_gemini_usage
+                write_gemini_usage(job_id, input_tokens, output_tokens)
+            except Exception as e:
+                logger.warning(f"[{job_id}] Failed to write Gemini usage to Firestore: {e}")
 
             return response.text
 

@@ -98,6 +98,16 @@ def mark_processing_failed(job_id: str, error_message: str) -> None:
     logger.warning(f"[{job_id}] Firestore status → failed: {error_message}")
 
 
+def get_job(job_id: str) -> dict | None:
+    """
+    Fetch a single job document by ID. Returns the document as a dict,
+    or None if it doesn't exist. Used by scratch.py for test verification.
+    """
+    db = get_db()
+    doc = db.collection("jobs").document(job_id).get()
+    return doc.to_dict() if doc.exists else None
+
+
 # ── Result writers (added Week 3, Day 3) ─────────────────────────────────────
 
 def write_results(
@@ -170,3 +180,45 @@ def write_summary(
 
     db.collection("summaries").document(job_id).set(doc_data)
     logger.info(f"[{job_id}] Summary written to Firestore")
+
+
+
+
+
+
+def write_gemini_usage(
+    job_id: str,
+    input_tokens: int,
+    output_tokens: int,
+) -> None:
+    """
+    Write Gemini token usage to the job document for cost tracking.
+
+    Called by generate_summary() after every successful Gemini API call.
+    Enables per-job cost visibility in the Firestore console and
+    makes it easy to identify unexpectedly expensive jobs.
+
+    Approximate cost (Gemini 1.5 Pro, prompts <= 128K tokens):
+      Input:  $3.50 per 1M tokens  →  $0.0000035 per token
+      Output: $10.50 per 1M tokens →  $0.0000105 per token
+
+    Args:
+        job_id: The job to update.
+        input_tokens: Prompt token count from response.usage_metadata.
+        output_tokens: Candidates token count from response.usage_metadata.
+    """
+    from datetime import datetime, timezone
+    db = get_db()
+
+    # Estimated cost in USD — informational only, not billed directly
+    estimated_cost_usd = round(
+        (input_tokens * 0.0000035) + (output_tokens * 0.0000105),
+        6
+    )
+
+    db.collection("jobs").document(job_id).update({
+        "geminiInputTokens": input_tokens,
+        "geminiOutputTokens": output_tokens,
+        "geminiEstimatedCostUsd": estimated_cost_usd,
+        "updatedAt": datetime.now(timezone.utc),
+    })
