@@ -15,14 +15,29 @@ export default function ResultPage() {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
 
   const videoPlayerRef = useRef(null);
 
   const seekTo = useCallback((seconds) => {
     if (videoPlayerRef.current) {
-      videoPlayerRef.current.seekTo(seconds);
+      videoPlayerRef.current.currentTime(seconds);
     }
   }, []);
+
+  const handlePlayerReady = useCallback((player) => {
+    videoPlayerRef.current = player;
+    player.on('timeupdate', () => {
+      setCurrentTime(player.currentTime());
+    });
+  }, []);
+
+  const formatDuration = (seconds) => {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return `${m}m ${s}s`;
+  };
 
   useEffect(() => {
     if (!jobId) return;
@@ -116,7 +131,7 @@ export default function ResultPage() {
           <div className="hidden md:flex items-center gap-2 text-sm text-slate-400 border-l border-white/10 pl-6">
             <span className="font-mono bg-white/5 px-2 py-1 rounded">Job: {jobId}</span>
             {result?.processingTime && (
-              <span>{" \u00B7 "} Processed in {result.processingTime.toFixed(1)}s</span>
+              <span>{" \u00B7 "} Processed in {formatDuration(result.processingTime)}</span>
             )}
           </div>
         </div>
@@ -133,9 +148,11 @@ export default function ResultPage() {
             <div className="flex-[0_0_auto]">
               <VideoPlayer 
                 videoUrl={result?.videoUrl} 
-                scenes={result?.scenes} 
-                highlights={result?.highlights}
-                onPlayerReady={(player) => { videoPlayerRef.current = player; }}
+                scenes={result?.scenes ?? []} 
+                highlights={result?.highlights ?? []}
+                currentTime={currentTime}
+                seekTo={seekTo}
+                onPlayerReady={handlePlayerReady}
               />
             </div>
             <div className="flex-[1_1_auto] overflow-hidden">
@@ -143,9 +160,9 @@ export default function ResultPage() {
                 <SummaryCard 
                   summary={result?.summary}
                   sentiment={result?.sentiment}
-                  chapters={result?.chapters}
-                  highlights={result?.highlights}
-                  actionItems={result?.actionItems}
+                  chapters={result?.chapters ?? []}
+                  highlights={result?.highlights ?? []}
+                  actionItems={result?.actionItems ?? []}
                   seekTo={seekTo}
                 />
               </div>
@@ -157,8 +174,8 @@ export default function ResultPage() {
             <div className="flex-[1_1_auto] h-1/2 overflow-hidden">
               <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
                 <TranscriptPanel 
-                  transcript={result?.transcript}
-                  currentTime={0} 
+                  transcript={result?.transcript ?? []}
+                  currentTime={currentTime} 
                   seekTo={seekTo}
                 />
               </div>
@@ -166,9 +183,10 @@ export default function ResultPage() {
             <div className="flex-[1_1_auto] h-1/2 overflow-hidden">
               <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
                 <ScenePanel 
-                  scenes={result?.scenes}
-                  labels={result?.labels}
+                  scenes={result?.scenes ?? []}
+                  labels={result?.labels ?? []}
                   seekTo={seekTo}
+                  currentTime={currentTime}
                 />
               </div>
             </div>
