@@ -32,3 +32,8 @@
 
   --font-sans: "Inter", sans-serif;
 }
+
+.vjs-default-skin .vjs-play-progress,
+.vjs-default-skin .vjs-volume-level {
+  background-color: #7c3aed;
+}
