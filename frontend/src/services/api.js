@@ -12,12 +12,15 @@ const api = axios.create({
  * Corresponds to POST /upload-url on the backend.
  */
 export async function getUploadUrl(filename, contentType, fileSizeMb) {
-  const response = await api.post('/upload-url', {
-    filename,
-    contentType,
-    fileSizeMb,
+  const fileSizeBytes = Math.round(fileSizeMb * 1024 * 1024)
+  const response = await api.post('/upload-url', null, {
+    params: {
+      filename,
+      content_type: contentType,
+      file_size_bytes: fileSizeBytes,
+    }
   })
-  return response.data  // { jobId, uploadUrl }
+  return response.data
 }
 
 /**
@@ -40,9 +43,16 @@ export async function uploadToGcs(uploadUrl, file, onProgress) {
  * Confirm the GCS upload is complete and trigger the AI worker via Pub/Sub.
  * Corresponds to POST /upload-confirm on the backend.
  */
-export async function confirmUpload(jobId) {
-  const response = await api.post('/upload-confirm', { jobId })
-  return response.data  // { jobId, status, message }
+export async function confirmUpload(jobId, gcsPath, filename, contentType) {
+  const response = await api.post('/upload-confirm', null, {
+    params: {
+      job_id: jobId,
+      gcs_path: gcsPath,
+      filename,
+      content_type: contentType,
+    }
+  })
+  return response.data
 }
 
 /**
