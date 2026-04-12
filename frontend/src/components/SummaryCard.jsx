@@ -31,17 +31,17 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
         {summary ? (
           <p className="text-slate-300 leading-relaxed text-sm">{summary}</p>
         ) : (
-          <p className="text-slate-500 italic text-sm">No summary available</p>
+          <p className="text-slate-500 italic text-sm">No summary available.</p>
         )}
       </div>
 
-      {/* Chapters (if any) */}
-      {chapters && chapters.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <BookOpen className="w-5 h-5 text-violet-400" />
-            <h3 className="text-lg font-bold">Chapters</h3>
-          </div>
+      {/* Chapters */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <BookOpen className="w-5 h-5 text-violet-400" />
+          <h3 className="text-lg font-bold">Chapters</h3>
+        </div>
+        {chapters && chapters.length > 0 ? (
           <div className="flex flex-col gap-2">
             {chapters.map((chapter, i) => (
               <button
@@ -56,16 +56,18 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
               </button>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-slate-500 text-sm">No chapters detected.</p>
+        )}
+      </div>
 
-      {/* Highlights (if any) */}
-      {highlights && highlights.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Star className="w-5 h-5 text-amber-400" />
-            <h3 className="text-lg font-bold">Key Highlights</h3>
-          </div>
+      {/* Highlights */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Star className="w-5 h-5 text-amber-400" />
+          <h3 className="text-lg font-bold">Key Highlights</h3>
+        </div>
+        {highlights && highlights.length > 0 ? (
           <div className="flex flex-col gap-3">
             {highlights.map((highlight, i) => (
               <div 
@@ -73,17 +75,19 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
                 onClick={() => seekTo(highlight.timestamp)}
                 className="flex items-start gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
               >
-                <span className="shrink-0 mt-0.5 px-2 py-1 rounded-md bg-amber-500/20 text-amber-300 text-xs font-mono">
-                  {formatTime(highlight.timestamp)}
-                </span>
-                <p className="text-sm text-slate-300 leading-relaxed">{highlight.description}</p>
+              <span className="shrink-0 mt-0.5 px-2 py-1 rounded-md bg-amber-500/20 text-amber-300 text-xs font-mono">
+                {formatTime(highlight.timestamp)}
+              </span>
+              <p className="text-sm text-slate-300 leading-relaxed">{highlight.description}</p>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-slate-500 text-sm">No highlights detected.</p>
+        )}
+      </div>
 
-      {/* Action Items (if any) */}
+      {/* Action Items (only render if non-empty) */}
       {actionItems && actionItems.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">

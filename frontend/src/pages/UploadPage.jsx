@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Upload, AlertCircle, Film, X, Zap, CheckCircle } from 'lucide-react';
+import { Upload, AlertCircle, Film, X, Zap, CheckCircle, Loader2 } from 'lucide-react';
 import { getUploadUrl, uploadToGcs, confirmUpload } from '../services/api';
 
 export default function UploadPage() {
@@ -47,8 +47,8 @@ export default function UploadPage() {
     }
 
     const fileSizeMb = selectedFile.size / (1024 * 1024);
-    if (fileSizeMb > 500) {
-      setError("File is too large. Maximum size is 500MB.");
+    if (fileSizeMb > 150) {
+      setError("File is too large. Maximum size is 100MB (~20 minutes of video).");
       return;
     }
 
@@ -125,7 +125,7 @@ export default function UploadPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold tracking-tight mb-2">Upload Your Video</h1>
-            <p className="text-slate-400 text-sm">MP4, MOV or AVI &middot; Max 500MB</p>
+            <p className="text-slate-400 text-sm">MP4, MOV or AVI &middot; Max 150MB &middot; ~20 min</p>
           </div>
 
           {/* Error Banner */}
@@ -141,7 +141,7 @@ export default function UploadPage() {
             <>
               {!file ? (
                 <div 
-                  className="border-2 border-dashed border-white/20 hover:border-violet-500/50 hover:bg-violet-500/[0.02] transition-colors rounded-2xl p-12 text-center cursor-pointer group"
+                  className="border-2 border-dashed border-white/20 hover:border-violet-500/50 hover:bg-violet-500/[0.02] transition-colors rounded-2xl p-8 sm:p-12 text-center cursor-pointer group"
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
@@ -180,9 +180,17 @@ export default function UploadPage() {
                   
                   <button 
                     onClick={handleUpload}
-                    className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 transition-all text-white py-3.5 rounded-xl font-medium text-lg shadow-lg"
+                    disabled={uploadState !== 'idle'}
+                    className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-white py-3.5 rounded-xl font-medium text-lg shadow-lg flex items-center justify-center gap-2"
                   >
-                    Upload & Analyse
+                    {uploadState === 'idle' ? (
+                      <>Upload & Analyse</>
+                    ) : (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Preparing...
+                      </>
+                    )}
                   </button>
                 </div>
               )}

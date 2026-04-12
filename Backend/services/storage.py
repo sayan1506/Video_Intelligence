@@ -7,6 +7,8 @@ import google.auth
 import google.auth.transport.requests
 from google.auth import impersonated_credentials
 
+SERVICE_ACCOUNT_EMAIL = os.getenv("GCP_SERVICE_ACCOUNT_EMAIL")
+
 logger = logging.getLogger(__name__)
 
 BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "video-intelligence-raw")
@@ -15,6 +17,8 @@ BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "video-intelligence-raw")
 # GCS requires chunks to be multiples of 256KB for resumable uploads.
 # 8MB = 8 * 1024 * 1024 = 8388608 bytes
 CHUNK_SIZE = 8 * 1024 * 1024
+
+
 
 
 def get_storage_client() -> storage.Client:
@@ -81,7 +85,7 @@ def get_signed_url(gcs_path: str, expiration_minutes: int = 120) -> str:
 
     target_credentials = impersonated_credentials.Credentials(
         source_credentials=source_credentials,
-        target_principal="video-intelligence-sa@video-intelligence-v1.iam.gserviceaccount.com",
+        target_principal=SERVICE_ACCOUNT_EMAIL,
         target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
         lifetime=300,
     )
@@ -120,7 +124,7 @@ def get_signed_upload_url(
 
     target_credentials = impersonated_credentials.Credentials(
         source_credentials=source_credentials,
-        target_principal="video-intelligence-sa@video-intelligence-v1.iam.gserviceaccount.com",
+        target_principal=SERVICE_ACCOUNT_EMAIL,
         target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
         lifetime=300,
     )

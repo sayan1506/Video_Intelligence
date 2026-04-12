@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Search } from 'lucide-react';
+import { Search, FileX } from 'lucide-react';
 
 const isActiveWord = (wordObj, currentTime) => {
   return currentTime >= wordObj.startTime && currentTime <= wordObj.endTime;
@@ -64,7 +64,11 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo }) {
       {/* Transcript Text Flow */}
       <div ref={scrollContainerRef} className="p-5 overflow-y-auto relative flex-1 custom-scrollbar">
         {isEmpty ? (
-          <p className="text-slate-500 italic text-sm text-center mt-10">No transcript available.</p>
+          <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+            <FileX className="w-10 h-10 mb-3 opacity-50" />
+            <p className="text-sm">No transcript available.</p>
+            <p className="text-xs mt-1 text-slate-600">Audio may not have been detected.</p>
+          </div>
         ) : (
           <div className="flex flex-wrap gap-x-1 gap-y-1 content-start font-sans leading-relaxed">
             {transcript.map((wordObj, i) => {

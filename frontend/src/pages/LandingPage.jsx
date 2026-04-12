@@ -39,7 +39,7 @@ export default function LandingPage() {
           Upload a video. Get a full transcript, AI summary, scene analysis, and smart chapters — powered by Google Cloud AI.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button 
             onClick={() => navigate('/upload')}
             className="w-full sm:w-auto bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 transition-all text-white px-8 py-3.5 rounded-full font-medium text-lg shadow-[0_0_40px_-10px_rgba(124,58,237,0.5)]"
@@ -63,7 +63,7 @@ export default function LandingPage() {
             <p className="text-slate-400">Deep insights extracted automatically by advanced multimodal AI.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <FeatureCard 
               icon={<FileText className="w-5 h-5 text-violet-400" />}
               title="Full Transcript"

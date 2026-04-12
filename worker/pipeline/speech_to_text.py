@@ -47,12 +47,14 @@ def extract_audio_to_flac(video_path: str, output_path: str) -> None:
     """Extract audio from video file to mono 16kHz FLAC using ffmpeg."""
     cmd = [
         FFMPEG_PATH,
+        "-threads", "2",        # ← add this, use both CPUs for decoding
         "-i", video_path,
-        "-vn",              # no video
-        "-ac", "1",         # mono
-        "-ar", "16000",     # 16kHz sample rate
-        "-f", "flac",       # FLAC format
-        "-y",               # overwrite output
+        "-vn",                  # no video
+        "-ac", "1",             # mono
+        "-ar", "16000",         # 16kHz sample rate
+        "-f", "flac",           # FLAC format
+        "-threads", "2",        # ← add this, use both CPUs for encoding
+        "-y",                   # overwrite output
         output_path,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -62,24 +64,23 @@ def extract_audio_to_flac(video_path: str, output_path: str) -> None:
 
 
 def download_from_gcs(gcs_uri: str, local_path: str) -> None:
-    """Download a GCS object to a local path."""
-    # Parse gs://bucket/path
     without_prefix = gcs_uri[5:]
     bucket_name, blob_path = without_prefix.split("/", 1)
     client = gcs_storage.Client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
-    blob.download_to_filename(local_path)
+    blob.chunk_size = 256 * 1024 * 1024  # ← add this line
+    blob.download_to_filename(local_path, timeout=600)
     logger.info(f"Downloaded {gcs_uri} to {local_path}")
 
 
 def upload_flac_to_gcs(local_path: str, job_id: str) -> str:
-    """Upload extracted FLAC to GCS, return GCS URI."""
     client = gcs_storage.Client()
     bucket = client.bucket(BUCKET_NAME)
     gcs_path = f"processed/{job_id}/audio.flac"
     blob = bucket.blob(gcs_path)
-    blob.upload_from_filename(local_path, content_type="audio/flac")
+    blob.chunk_size = 256 * 1024 * 1024  # ← add this line
+    blob.upload_from_filename(local_path, content_type="audio/flac", timeout=600)
     gcs_uri = f"gs://{BUCKET_NAME}/{gcs_path}"
     logger.info(f"Uploaded FLAC to {gcs_uri}")
     return gcs_uri

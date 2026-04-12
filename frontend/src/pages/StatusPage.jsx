@@ -96,7 +96,7 @@ export default function StatusPage() {
 
           <div className="relative flex justify-center mb-8">
             {/* SVG Ring */}
-            <svg width="200" height="200" className="transform -rotate-90">
+            <svg viewBox="0 0 200 200" className="transform -rotate-90 w-32 h-32 sm:w-48 sm:h-48">
               <circle
                 cx="100"
                 cy="100"
