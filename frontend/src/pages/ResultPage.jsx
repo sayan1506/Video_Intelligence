@@ -8,6 +8,10 @@ import SummaryCard from '../components/SummaryCard';
 import TranscriptPanel from '../components/TranscriptPanel';
 import ScenePanel from '../components/ScenePanel';
 
+const SkeletonCard = ({ className }) => (
+  <div className={`bg-white/5 border border-white/10 rounded-2xl animate-pulse ${className}`} />
+);
+
 export default function ResultPage() {
   const { jobId } = useParams();
   const navigate = useNavigate();
@@ -61,39 +65,42 @@ export default function ResultPage() {
     return (
       <div className="min-h-screen bg-dark-base text-slate-100 font-sans">
         <NavHeader />
-        <main className="p-6 max-w-7xl mx-auto flex flex-col md:flex-row gap-6 animate-pulse-slow">
-           <div className="w-full md:w-1/2 flex flex-col gap-6">
-              <div className="h-[400px] bg-dark-surface rounded-2xl"></div>
-              <div className="h-[400px] bg-dark-surface rounded-2xl"></div>
-           </div>
-           <div className="w-full md:w-1/2 flex flex-col gap-6">
-              <div className="h-[500px] bg-dark-surface rounded-2xl"></div>
-              <div className="h-[300px] bg-dark-surface rounded-2xl"></div>
-           </div>
-        </main>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+          <div className="flex flex-col gap-4">
+            <SkeletonCard className="h-72" />
+            <SkeletonCard className="h-64" />
+          </div>
+          <div className="flex flex-col gap-4">
+            <SkeletonCard className="h-80" />
+            <SkeletonCard className="h-64" />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-dark-base text-slate-100 font-sans flex flex-col">
-        <NavHeader />
-        <main className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-[500px] bg-dark-surface border border-red-500/20 rounded-3xl p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500">
-              <AlertTriangle className="w-8 h-8" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Error Loading Result</h2>
-            <p className="text-slate-400 mb-8">{error}</p>
-            <button 
+      <div className="min-h-screen bg-dark-base flex items-center justify-center">
+        <div className="text-center max-w-md p-8 bg-white/5 border border-white/10 rounded-2xl">
+          <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-100 mb-2">Failed to load results</h2>
+          <p className="text-slate-400 text-sm mb-6">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
               onClick={() => navigate('/upload')}
-              className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-colors"
+              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm transition-colors"
             >
-              Back to Upload
+              New Upload
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-300 rounded-xl text-sm transition-colors"
+            >
+              Retry
             </button>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
@@ -122,14 +129,14 @@ export default function ResultPage() {
 
   return (
     <div className="min-h-screen bg-dark-base text-slate-100 font-sans flex flex-col overflow-hidden">
-      <header className="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-dark-base shrink-0">
+      <header className="border-b border-white/5 px-6 py-4 flex flex-wrap items-center justify-between bg-dark-base shrink-0">
         <div className="flex items-center gap-6">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
              <Zap className="w-6 h-6 text-violet-500" fill="currentColor" />
              <span>VidIQ</span>
           </Link>
           <div className="hidden md:flex items-center gap-2 text-sm text-slate-400 border-l border-white/10 pl-6">
-            <span className="font-mono bg-white/5 px-2 py-1 rounded">Job: {jobId}</span>
+            <span className="font-mono bg-white/5 px-2 py-1 rounded truncate max-w-[150px] sm:max-w-none">Job: {jobId}</span>
             {result?.processingTime && (
               <span>{" \u00B7 "} Processed in {formatDuration(result.processingTime)}</span>
             )}

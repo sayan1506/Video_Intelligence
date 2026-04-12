@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
+import { VideoOff } from 'lucide-react';
 
 export default function VideoPlayer({ videoUrl, scenes, highlights, currentTime, seekTo, onPlayerReady }) {
   const videoRef = useRef(null);
   const playerRef = useRef(null);
   const [duration, setDuration] = useState(0);
   console.log('VideoPlayer render — videoUrl:', videoUrl);
+
   useEffect(() => {
+    if (!videoUrl) return;
+
     // Wait for next tick to ensure DOM element is fully mounted
     const timer = setTimeout(() => {
       if (playerRef.current) return;
@@ -38,6 +42,17 @@ export default function VideoPlayer({ videoUrl, scenes, highlights, currentTime,
       }
     };
   }, [videoUrl]);
+
+  if (!videoUrl) {
+    return (
+      <div className="bg-dark-surface border border-dark-border rounded-2xl p-4 md:p-6 w-full">
+        <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+          <VideoOff className="w-10 h-10 mb-3 opacity-50" />
+          <p className="text-sm">Video unavailable</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-dark-surface border border-dark-border rounded-2xl p-4 md:p-6 w-full">

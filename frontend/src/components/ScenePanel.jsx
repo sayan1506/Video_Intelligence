@@ -1,3 +1,5 @@
+import { Film } from 'lucide-react';
+
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
@@ -49,7 +51,10 @@ export default function ScenePanel({ scenes, labels, seekTo, currentTime }) {
       {/* Scene List scrollable content */}
       <div className="p-3 overflow-y-auto flex-1 custom-scrollbar">
         {!hasScenes ? (
-          <p className="text-slate-500 italic text-sm text-center mt-6">No scene data available.</p>
+          <div className="flex flex-col items-center justify-center h-48 text-slate-500">
+            <Film className="w-10 h-10 mb-3 opacity-50" />
+            <p className="text-sm">No scenes detected.</p>
+          </div>
         ) : (
           <div className="flex flex-col gap-1.5">
             {scenes.map((scene, i) => {

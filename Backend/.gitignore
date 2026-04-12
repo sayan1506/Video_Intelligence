@@ -13,4 +13,11 @@ __pycache__/
 .vscode/
 .idea/
 
+# Runtime artifacts
+logs.json
+upload_response.json
+test.txt
 cors-config.json
+
+# Dev scripts
+scratch.py

@@ -12,6 +12,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "video-intelligence-raw")
+SERVICE_ACCOUNT_EMAIL = os.getenv("GCP_SERVICE_ACCOUNT_EMAIL")
 
 # Chunk size for streaming uploads — 8MB balances memory usage vs GCS API calls.
 # GCS requires chunks to be multiples of 256KB for resumable uploads.
@@ -83,7 +84,7 @@ def get_signed_url(gcs_path: str, expiration_minutes: int = 120) -> str:
 
     target_credentials = impersonated_credentials.Credentials(
         source_credentials=source_credentials,
-        target_principal="video-intelligence-sa@video-intelligence-v1.iam.gserviceaccount.com",
+        target_principal=SERVICE_ACCOUNT_EMAIL,
         target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
         lifetime=300,
     )
