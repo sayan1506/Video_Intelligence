@@ -129,6 +129,12 @@ def write_results(
         transcript: List of WordTimestamp dicts from the STT pipeline.
         scenes:     List of Scene dicts from the Video Intelligence pipeline.
     """
+
+    MAX_WORDS = 8000
+    if len(transcript) > MAX_WORDS:
+        logger.warning(f"[{job_id}] Transcript truncated from {len(transcript)} to {MAX_WORDS} words")
+        transcript = transcript[:MAX_WORDS]
+
     db = get_db()
 
     all_labels = list({
