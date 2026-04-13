@@ -47,8 +47,8 @@ export default function UploadPage() {
     }
 
     const fileSizeMb = selectedFile.size / (1024 * 1024);
-    if (fileSizeMb > 150) {
-      setError("File is too large. Maximum size is 100MB (~20 minutes of video).");
+    if (fileSizeMb > 100) {
+      setError("File is too large. Maximum size is 100MB.");
       return;
     }
 
@@ -125,7 +125,7 @@ export default function UploadPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold tracking-tight mb-2">Upload Your Video</h1>
-            <p className="text-slate-400 text-sm">MP4, MOV or AVI &middot; Max 150MB &middot; ~20 min</p>
+            <p className="text-slate-400 text-sm">MP4, MOV or AVI &middot; Max 100MB</p>
           </div>
 
           {/* Error Banner */}

@@ -159,7 +159,7 @@ async def transcribe(
     logger.info(f"[{job_id}] STT v2: Polling for completion...")
 
     try:
-        response = _poll_operation_with_retry(operation, job_id=job_id, timeout=1800)
+        response = _poll_operation_with_retry(operation, job_id=job_id, timeout=7200)
     except Exception as e:
         logger.error(f"[{job_id}] STT v2: Operation failed: {e}")
         raise RuntimeError(f"Speech-to-Text operation failed: {e}") from e
