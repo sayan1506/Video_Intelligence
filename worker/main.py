@@ -53,10 +53,14 @@ logger = logging.getLogger("worker")
 # ---------------------------------------------------------------------------
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID")
-SUBSCRIPTION_ID = os.getenv("PUBSUB_SUBSCRIPTION", "video-processing-sub")
+SUBSCRIPTION_ID = os.getenv("PUBSUB_SUBSCRIPTION")
 
 if not PROJECT_ID:
     logger.error("GCP_PROJECT_ID env var not set — exiting")
+    sys.exit(1)
+
+if not SUBSCRIPTION_ID:
+    logger.error("PUBSUB_SUBSCRIPTION env var not set — exiting")
     sys.exit(1)
 
 
