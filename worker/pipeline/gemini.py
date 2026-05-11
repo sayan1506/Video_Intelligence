@@ -14,7 +14,7 @@ from google.genai import types
 logger = logging.getLogger(__name__)
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID")
-LOCATION = "us-central1"
+LOCATION = os.getenv("GCP_REGION", "us-central1")
 MODEL_NAME = "gemini-2.5-flash"
 
 

@@ -26,3 +26,10 @@ dist-ssr
 
 .env
 .env.local
+
+# Production environment (contains live API URLs)
+.env.production
+.env.*.local
+
+# Firebase deploy cache (build artifact)
+.firebase/

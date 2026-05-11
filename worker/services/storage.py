@@ -11,7 +11,10 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
-BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "video-intelligence-raw")
+BUCKET_NAME = os.getenv("GCP_BUCKET_NAME")
+
+if not BUCKET_NAME:
+    raise RuntimeError("GCP_BUCKET_NAME environment variable is not set")
 SERVICE_ACCOUNT_EMAIL = os.getenv("GCP_SERVICE_ACCOUNT_EMAIL")
 
 # Chunk size for streaming uploads — 8MB balances memory usage vs GCS API calls.

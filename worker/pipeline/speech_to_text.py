@@ -17,8 +17,13 @@ from services.storage import write_processed_json
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ID = os.getenv("GCP_PROJECT_ID", "video-intelligence-v1")
-BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "video-intelligence-raw")
+PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+BUCKET_NAME = os.getenv("GCP_BUCKET_NAME")
+
+if not PROJECT_ID:
+    raise RuntimeError("GCP_PROJECT_ID environment variable is not set")
+if not BUCKET_NAME:
+    raise RuntimeError("GCP_BUCKET_NAME environment variable is not set")
 
 FFMPEG_PATH = shutil.which("ffmpeg") or "ffmpeg"
 

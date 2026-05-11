@@ -10,8 +10,15 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID")
-TOPIC_ID = os.getenv("PUBSUB_TOPIC", "video-processing")
-BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "video-intelligence-raw")
+TOPIC_ID = os.getenv("PUBSUB_TOPIC")
+BUCKET_NAME = os.getenv("GCP_BUCKET_NAME")
+
+if not PROJECT_ID:
+    raise RuntimeError("GCP_PROJECT_ID environment variable is not set")
+if not TOPIC_ID:
+    raise RuntimeError("PUBSUB_TOPIC environment variable is not set")
+if not BUCKET_NAME:
+    raise RuntimeError("GCP_BUCKET_NAME environment variable is not set")
 
 # Retry configuration
 MAX_RETRIES = 3
