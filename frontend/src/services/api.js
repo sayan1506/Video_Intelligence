@@ -76,6 +76,16 @@ export async function getResult(jobId) {
 }
 
 /**
+ * Fetch a fresh signed video URL for the player.
+ * Corresponds to GET /video-url/{jobId} on the backend.
+ * Called on every ResultPage load — replaces the stale URL pattern.
+ */
+export async function getVideoUrl(jobId) {
+  const response = await api.get(`/video-url/${jobId}`)
+  return response.data.videoUrl
+}
+
+/**
  * Health check — useful for debugging connectivity issues.
  */
 export async function healthCheck() {

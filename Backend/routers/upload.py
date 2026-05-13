@@ -127,13 +127,7 @@ async def confirm_upload(
     logger.info(f"[{job_id}] Upload confirmed — triggering pipeline")
 
     # --- Generate signed read URL for the video player ---
-    try:
-        video_url = storage.get_signed_url(gcs_path, expiration_minutes=120)
-        firestore.write_video_url(job_id, video_url)
-        logger.info(f"[{job_id}] Signed read URL written to Firestore")
-    except Exception as e:
-        logger.warning(f"[{job_id}] Signed URL generation failed (non-fatal): {e}")
-
+    
     # --- Mark job as pending, ready for worker ---
     try:
         firestore.update_job_status(job_id, "pending", progress=25)

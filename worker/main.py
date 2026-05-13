@@ -107,6 +107,28 @@ def process_message(message: pubsub_v1.types.PubsubMessage) -> None:
         f"file: {job_message.filename}, uri: {job_message.gcsUri}"
     )
 
+    # ── IDEMPOTENCY GUARD ──────────────────────────────────────────
+    # Pub/Sub may redeliver this message if the ack deadline expires
+    # (e.g. on very long videos). Check Firestore before doing any work.
+    # If status is already processing/completed/failed, ack and skip.
+    TERMINAL_OR_ACTIVE_STATUSES = {"processing", "completed", "failed",
+                                   "stt_done", "vi_done", "gemini_done"}
+    try:
+        job = firestore.get_job(job_message.jobId)
+        if job and job.get("status") in TERMINAL_OR_ACTIVE_STATUSES:
+            logger.warning(
+                f"[{job_id}] Job already in status '{job.get('status')}' "
+                f"— duplicate message, acking without processing"
+            )
+            message.ack()
+            return
+    except Exception as e:
+        # Can't read Firestore — safer to nack and let Pub/Sub retry
+        logger.error(f"[{job_id}] Idempotency check failed: {e} — nacking")
+        message.nack()
+        return
+    # ── END IDEMPOTENCY GUARD ──────────────────────────────────────
+
     try:
         firestore.mark_processing_started(job_message.jobId)
     except Exception as e:

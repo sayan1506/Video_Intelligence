@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Zap, AlertTriangle, ArrowLeft } from 'lucide-react';
-import { getResult } from '../services/api';
+import { getResult, getVideoUrl } from '../services/api';
 
 import VideoPlayer from '../components/VideoPlayer';
 import SummaryCard from '../components/SummaryCard';
@@ -17,6 +17,7 @@ export default function ResultPage() {
   const navigate = useNavigate();
   
   const [result, setResult] = useState(null);
+  const [videoUrl, setVideoUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -48,8 +49,12 @@ export default function ResultPage() {
     
     const fetchResult = async () => {
       try {
-        const data = await getResult(jobId);
+        const [data, freshVideoUrl] = await Promise.all([
+          getResult(jobId),
+          getVideoUrl(jobId),
+        ]);
         setResult(data);
+        setVideoUrl(freshVideoUrl);
       } catch (err) {
         console.error(err);
         setError("Failed to load result.");
@@ -154,7 +159,7 @@ export default function ResultPage() {
           <div className="w-full md:w-1/2 flex flex-col gap-4 md:gap-6 min-h-0">
             <div className="flex-[0_0_auto]">
               <VideoPlayer 
-                videoUrl={result?.videoUrl} 
+                videoUrl={videoUrl} 
                 scenes={result?.scenes ?? []} 
                 highlights={result?.highlights ?? []}
                 currentTime={currentTime}
