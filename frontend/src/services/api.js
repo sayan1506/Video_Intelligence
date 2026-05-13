@@ -4,7 +4,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000,
+  timeout: 60000,  // 60s — enough for signed URL requests and confirm calls
 })
 
 /**
