@@ -117,17 +117,7 @@ def update_upload_progress(job_id: str, upload_progress: int) -> None:
     })
 
 
-def write_video_url(job_id: str, video_url: str) -> None:
-    """
-    Write the signed GCS video URL to the job document.
-    Called immediately after GCS upload completes.
-    The frontend reads this from GET /status/{jobId} to feed the video player.
-    """
-    db = get_db()
-    db.collection("jobs").document(job_id).update({
-        "videoUrl": video_url,
-        "updatedAt": datetime.now(timezone.utc),
-    })
+
 
 
 def mark_processing_started(job_id: str) -> None:
@@ -215,14 +205,20 @@ def get_result(job_id: str) -> dict | None:
     """
     Fetch the AI pipeline results document for a completed job.
 
-    Reads from the results/{jobId} collection written by the worker orchestrator.
-    Returns None if the document doesn't exist yet (job still processing).
+    Handles two storage formats transparently:
 
-    Args:
-        job_id: The job identifier.
+    New format (V1.1+):
+        transcriptChunkCount field is present. Transcript is stored as a
+        subcollection (transcript_chunks/). Assembled here and injected into
+        the returned dict as data["transcript"].
+
+    Old format (V1.0):
+        transcript stored as a flat array directly in the document.
+        data["transcript"] already exists — nothing to do.
 
     Returns:
         Dict with keys: transcript, scenes, labels — or None if not found.
+        transcript is always a flat list regardless of storage format.
     """
     db = get_db()
     doc = db.collection("results").document(job_id).get()
@@ -230,7 +226,23 @@ def get_result(job_id: str) -> dict | None:
     if not doc.exists:
         return None
 
-    return doc.to_dict()
+    data = doc.to_dict()
+
+    # ── New format: transcript stored as subcollection chunks ──────────────
+    chunk_count = data.get("transcriptChunkCount")
+    if chunk_count is not None and chunk_count > 0:
+        transcript = get_transcript_chunks(job_id, chunk_count)
+        data["transcript"] = transcript
+        logger.info(f"[{job_id}] Loaded chunked transcript — {len(transcript)} words")
+
+    # ── Old format: transcript is a flat array in the document ─────────────
+    # data["transcript"] already exists as a list — nothing to do.
+    # Handles all pre-V1.1 completed jobs gracefully.
+    elif "transcript" not in data:
+        logger.warning(f"[{job_id}] Result document has neither transcript nor chunks")
+        data["transcript"] = []
+
+    return data
 
 
 def get_summary(job_id: str) -> dict | None:
@@ -254,3 +266,51 @@ def get_summary(job_id: str) -> dict | None:
         return None
 
     return doc.to_dict()
+
+
+
+
+def get_transcript_chunks(job_id: str, chunk_count: int) -> list:
+    """
+    Assemble a full transcript from subcollection chunks.
+
+    Reads transcript_chunks/0 through transcript_chunks/{chunk_count-1}
+    and concatenates their word arrays in order.
+
+    Called by get_result() when the result document has a transcriptChunkCount
+    field (i.e. new-format jobs written by the V1.1 worker).
+
+    Args:
+        job_id:      The job identifier.
+        chunk_count: Number of chunks to fetch — read from transcriptChunkCount
+                     in the parent results document.
+
+    Returns:
+        Flat list of WordTimestamp dicts, assembled in order.
+        Returns [] if any chunk is missing (defensive — logs a warning).
+    """
+    db = get_db()
+    chunk_ref = (
+        db.collection("results")
+        .document(job_id)
+        .collection("transcript_chunks")
+    )
+
+    transcript = []
+
+    for i in range(chunk_count):
+        doc = chunk_ref.document(str(i)).get()
+        if not doc.exists:
+            logger.warning(
+                f"[{job_id}] Transcript chunk {i} missing "
+                f"(expected {chunk_count} chunks) — transcript may be incomplete"
+            )
+            continue
+        words = doc.to_dict().get("words", [])
+        transcript.extend(words)
+
+    logger.info(
+        f"[{job_id}] Transcript assembled — "
+        f"{len(transcript)} words from {chunk_count} chunks"
+    )
+    return transcript
