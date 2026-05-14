@@ -21,3 +21,6 @@ cors-config.json
 
 # Dev scripts
 scratch.py
+
+cors-config.json
+cors.json

@@ -61,7 +61,7 @@ export default function UploadPage() {
     setFile(null);
     setError(null);
     if (fileInputRef.current) {
-       fileInputRef.current.value = "";
+      fileInputRef.current.value = "";
     }
   };
 
@@ -72,6 +72,7 @@ export default function UploadPage() {
     setError(null);
     setUploadStepText('Preparing upload...');
     setUploadProgress(0);
+    let currentStep = 'prepare';
 
     const fileSizeMb = file.size / (1024 * 1024);
 
@@ -80,33 +81,29 @@ export default function UploadPage() {
       const { jobId, uploadUrl, gcsPath } = await getUploadUrl(file.name, file.type, fileSizeMb);
 
       // Step 2 — upload directly to GCS
+      currentStep = 'upload';
       setUploadStepText('Uploading...');
       await uploadToGcs(uploadUrl, file, (percent) => {
         setUploadProgress(percent);
       });
 
-      // Step 3 — confirm and trigger AI pipeline
+      // Step 3 — confirm upload and trigger processing
+      currentStep = 'confirm';
       setUploadStepText('Confirming upload...');
       await confirmUpload(jobId, gcsPath, file.name, file.type);
 
-      setUploadStepText('Starting AI processing...');
       setUploadState('redirecting');
-
-      setTimeout(() => {
-        navigate('/status/' + jobId);
-      }, 1500);
-
+      navigate(`/status/${jobId}`);
     } catch (err) {
       console.error(err);
-      if (uploadStepText === 'Preparing upload...') {
+      if (currentStep === 'prepare') {
         setError("Failed to prepare upload. Please try again.");
         setUploadState('idle');
-      } else if (uploadStepText === 'Uploading...') {
+      } else if (currentStep === 'upload') {
         setError("Upload failed. Check your connection and try again.");
         setUploadState('idle');
       } else {
         setError("Upload succeeded but processing could not start. Please refresh and try again.");
-        // Do not reset to idle — file is already in GCS
       }
     }
   };
