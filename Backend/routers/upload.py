@@ -92,15 +92,15 @@ async def request_upload_url(
 
     # --- Generate signed PUT URL (15 min expiry — enough for large uploads) ---
     try:
-        upload_url = storage.get_signed_upload_url(
-            gcs_path=gcs_path,
+        upload_url = storage.initiate_resumable_upload(
+            job_id=job_id,
+            filename=filename,
             content_type=content_type,
-            expiration_minutes=15,
         )
     except Exception as e:
-        logger.error(f"[{job_id}] Signed upload URL generation failed: {e}")
-        firestore.update_job_status(job_id, "failed", error="Could not generate upload URL")
-        raise HTTPException(status_code=500, detail="Could not generate upload URL.")
+        logger.error(f"[{job_id}] Resumable upload initiation failed: {e}")
+        firestore.update_job_status(job_id, "failed", error="Could not initiate upload")
+        raise HTTPException(status_code=500, detail="Could not initiate upload.")
 
     return {
         "jobId": job_id,

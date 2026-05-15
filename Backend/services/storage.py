@@ -33,6 +33,48 @@ def build_gcs_path(job_id: str, filename: str) -> str:
     return f"raw-videos/{job_id}/{filename}"
 
 
+def initiate_resumable_upload(
+    job_id: str,
+    filename: str,
+    content_type: str,
+) -> str:
+    """
+    Initiate a GCS resumable upload session and return the upload URI.
+
+    The URI is returned directly to the browser. The browser then PUTs
+    chunks to storage.googleapis.com using this URI — the API never
+    touches the file bytes.
+
+    Uses ADC (no impersonation) — the service account has Storage Object
+    Admin on the bucket, which is sufficient to create resumable uploads.
+
+    Args:
+        job_id:       Used to build the GCS path.
+        filename:     Original filename — preserved in the GCS object name.
+        content_type: MIME type declared by the client (e.g. "video/mp4").
+
+    Returns:
+        Resumable upload URI (https://storage.googleapis.com/upload/storage/v1/b/...).
+        The browser PUTs chunks to this URI with Content-Range headers.
+    """
+    client = get_storage_client()
+    bucket = client.bucket(BUCKET_NAME)
+    gcs_path = build_gcs_path(job_id, filename)
+    blob = bucket.blob(gcs_path)
+
+    frontend_origin = os.getenv("FRONTEND_ORIGIN", "https://video-intelligence-v1.web.app")
+
+    resumable_url = blob.create_resumable_upload_session(
+        content_type=content_type,
+        origin=frontend_origin,
+    )
+
+    logger.info(f"[{job_id}] Resumable upload session initiated → {gcs_path}")
+    return resumable_url
+
+
+
+
 async def upload_to_gcs(
     file: UploadFile,
     job_id: str,
@@ -117,30 +159,3 @@ def delete_gcs_object(gcs_path: str) -> None:
 
 
 
-def get_signed_upload_url(
-    gcs_path: str,
-    content_type: str = "video/mp4",
-    expiration_minutes: int = 15,
-) -> str:
-    source_credentials, project = google.auth.default()
-    source_credentials.refresh(google.auth.transport.requests.Request())
-
-    target_credentials = impersonated_credentials.Credentials(
-        source_credentials=source_credentials,
-        target_principal=SERVICE_ACCOUNT_EMAIL,
-        target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
-        lifetime=300,
-    )
-
-    client = get_storage_client()
-    bucket = client.bucket(BUCKET_NAME)
-    blob = bucket.blob(gcs_path)
-
-    url = blob.generate_signed_url(
-        expiration=datetime.timedelta(minutes=expiration_minutes),
-        method="PUT",            # ← was "GET"
-        content_type=content_type,  # ← required for PUT signed URLs
-        version="v4",
-        credentials=target_credentials,
-    )
-    return url

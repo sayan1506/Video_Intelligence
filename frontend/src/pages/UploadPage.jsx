@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Upload, AlertCircle, Film, X, Zap, CheckCircle, Loader2 } from 'lucide-react';
 import { getUploadUrl, uploadToGcs, confirmUpload } from '../services/api';
 
-const MAX_FILE_SIZE_MB = 500;
+const MAX_FILE_SIZE_MB = 2048;
 
 export default function UploadPage() {
   const navigate = useNavigate();
@@ -78,7 +78,7 @@ export default function UploadPage() {
 
     try {
       // Step 1 — get signed PUT URL from backend
-      const { jobId, uploadUrl, gcsPath } = await getUploadUrl(file.name, file.type, fileSizeMb);
+      const { jobId, uploadUrl, gcsPath } = await getUploadUrl(file.name, file.type, file.size);
 
       // Step 2 — upload directly to GCS
       currentStep = 'upload';

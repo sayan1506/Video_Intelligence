@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://video-intelligence-v1.web.app", "http://localhost:5173"],
+    "method": ["PUT", "POST", "GET", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Content-Range", "X-Goog-Upload-Status", "X-Goog-Upload-Command", "X-Goog-Upload-Offset", "X-Goog-Upload-Header-Content-Length", "X-Goog-Upload-Header-Content-Type", "Authorization", "Range"],
+    "maxAgeSeconds": 3600
+  }
+]
