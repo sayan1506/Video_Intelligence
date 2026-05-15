@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Upload, AlertCircle, Film, X, Zap, CheckCircle, Loader2 } from 'lucide-react';
 import { getUploadUrl, uploadToGcs, confirmUpload } from '../services/api';
 
-const MAX_FILE_SIZE_MB = 200;
+const MAX_FILE_SIZE_MB = 500;
 
 export default function UploadPage() {
   const navigate = useNavigate();
