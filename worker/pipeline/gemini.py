@@ -9,7 +9,6 @@ from google import genai
 from google.genai import types
 import time as time_module
 from google.api_core.exceptions import ServiceUnavailable, ResourceExhausted
-from google.genai import types
 
 logger = logging.getLogger(__name__)
 

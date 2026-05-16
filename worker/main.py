@@ -9,7 +9,8 @@ import signal
 
 load_dotenv()
 import threading
-from google.cloud import pubsub_v1
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
 from google.cloud import pubsub_v1
 from google.api_core.exceptions import GoogleAPICallError
 from pydantic import ValidationError
@@ -17,10 +18,6 @@ from pydantic import ValidationError
 from models.schemas import JobMessage
 from pipeline.orchestrator import run_pipeline
 from services import firestore
-
-
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -51,7 +48,6 @@ def ping_gemini() -> None:
     Never raises — logs a warning on failure and continues.
     """
     import time as _time
-    from google import genai as _genai
     from google.genai import types as _types
     from pipeline.gemini import get_gemini_client, MODEL_NAME
 
