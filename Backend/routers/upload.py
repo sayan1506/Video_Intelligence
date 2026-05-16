@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 MAX_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", 500))
 ALLOWED_TYPES = os.getenv(
     "ALLOWED_VIDEO_TYPES",
-    "video/mp4,video/quicktime,video/avi,video/x-msvideo"
+    "video/mp4,video/quicktime,video/avi,video/x-msvideo,video/x-matroska,video/matroska"
 ).split(",")
 
 
@@ -55,7 +55,7 @@ async def request_upload_url(
     if not validate_file_extension(filename or ""):
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file extension for: {filename}. Allowed: .mp4, .mov, .avi"
+            detail=f"Unsupported file extension for: {filename}. Allowed: .mp4, .mov, .avi, .mkv"
         )
 
     # --- Validation: file size (client-declared) ---

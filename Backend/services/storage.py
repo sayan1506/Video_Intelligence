@@ -62,11 +62,8 @@ def initiate_resumable_upload(
     gcs_path = build_gcs_path(job_id, filename)
     blob = bucket.blob(gcs_path)
 
-    frontend_origin = os.getenv("FRONTEND_ORIGIN", "https://video-intelligence-v1.web.app")
-
     resumable_url = blob.create_resumable_upload_session(
         content_type=content_type,
-        origin=frontend_origin,
     )
 
     logger.info(f"[{job_id}] Resumable upload session initiated → {gcs_path}")

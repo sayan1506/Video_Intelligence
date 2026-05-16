@@ -41,10 +41,14 @@ export default function UploadPage() {
 
   const validateAndSetFile = (selectedFile) => {
     setError(null);
-    const validTypes = ['video/mp4', 'video/quicktime', 'video/avi'];
+    const validTypes = ['video/mp4', 'video/quicktime', 'video/avi', 'video/x-matroska', 'video/matroska'];
+    const validExtensions = ['.mp4', '.mov', '.avi', '.mkv'];
 
-    if (!validTypes.includes(selectedFile.type)) {
-      setError("Invalid file type. Please upload MP4, MOV, or AVI.");
+    const fileExtension = '.' + selectedFile.name.split('.').pop().toLowerCase();
+    const isValidType = validTypes.includes(selectedFile.type) || validExtensions.includes(fileExtension);
+
+    if (!isValidType) {
+      setError("Invalid file type. Please upload MP4, MOV, AVI, or MKV.");
       return;
     }
 
@@ -76,9 +80,14 @@ export default function UploadPage() {
 
     const fileSizeMb = file.size / (1024 * 1024);
 
+    // Resolve content type — browsers often don't recognize .mkv
+    const extensionMimeMap = { '.mkv': 'video/x-matroska' };
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    const contentType = file.type || extensionMimeMap[ext] || 'application/octet-stream';
+
     try {
       // Step 1 — get signed PUT URL from backend
-      const { jobId, uploadUrl, gcsPath } = await getUploadUrl(file.name, file.type, file.size);
+      const { jobId, uploadUrl, gcsPath } = await getUploadUrl(file.name, contentType, file.size);
 
       // Step 2 — upload directly to GCS
       currentStep = 'upload';
@@ -90,7 +99,7 @@ export default function UploadPage() {
       // Step 3 — confirm upload and trigger processing
       currentStep = 'confirm';
       setUploadStepText('Confirming upload...');
-      await confirmUpload(jobId, gcsPath, file.name, file.type);
+      await confirmUpload(jobId, gcsPath, file.name, contentType);
 
       setUploadState('redirecting');
       navigate(`/status/${jobId}`);
@@ -155,7 +164,7 @@ export default function UploadPage() {
                     className="hidden"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept="video/mp4,video/quicktime,video/avi"
+                    accept="video/mp4,video/quicktime,video/avi,video/x-matroska,.mkv"
                   />
                 </div>
               ) : (
