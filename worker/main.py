@@ -38,6 +38,43 @@ def start_health_server():
     thread.start()
     logger.info(f"Health server started on port {port}")
 
+
+def ping_gemini() -> None:
+    """
+    Warm up the Gemini gRPC channel at worker startup.
+
+    Makes a single-token generate_content() call to establish and cache
+    the gRPC connection. All subsequent calls in this process reuse the
+    established channel, eliminating the ~6s cold-start latency on the
+    first real job.
+
+    Never raises — logs a warning on failure and continues.
+    """
+    import time as _time
+    from google import genai as _genai
+    from google.genai import types as _types
+    from pipeline.gemini import get_gemini_client, MODEL_NAME
+
+    ping_config = _types.GenerateContentConfig(
+        temperature=0.0,
+        max_output_tokens=1,
+    )
+
+    logger.info("Gemini warm-up: establishing gRPC channel...")
+    t0 = _time.monotonic()
+    try:
+        client = get_gemini_client()
+        client.models.generate_content(
+            model=MODEL_NAME,
+            contents="hi",
+            config=ping_config,
+        )
+        elapsed = _time.monotonic() - t0
+        logger.info(f"Gemini warm-up complete ({elapsed:.1f}s)")
+    except Exception as e:
+        elapsed = _time.monotonic() - t0
+        logger.warning(f"Gemini warm-up failed after {elapsed:.1f}s (non-fatal): {e}")
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -254,6 +291,7 @@ def _get_subscription_path() -> str:
 
 def main():
     start_health_server()
+    ping_gemini()
     subscriber = _get_subscriber()
     subscription_path = _get_subscription_path()
 
