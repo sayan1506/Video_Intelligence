@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 MAX_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", 500))
 ALLOWED_TYPES = os.getenv(
     "ALLOWED_VIDEO_TYPES",
-    "video/mp4,video/quicktime,video/avi,video/x-msvideo"
+    "video/mp4,video/quicktime,video/avi,video/x-msvideo,video/x-matroska,video/matroska"
 ).split(",")
 
 
@@ -55,7 +55,7 @@ async def request_upload_url(
     if not validate_file_extension(filename or ""):
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file extension for: {filename}. Allowed: .mp4, .mov, .avi"
+            detail=f"Unsupported file extension for: {filename}. Allowed: .mp4, .mov, .avi, .mkv"
         )
 
     # --- Validation: file size (client-declared) ---
@@ -92,15 +92,15 @@ async def request_upload_url(
 
     # --- Generate signed PUT URL (15 min expiry — enough for large uploads) ---
     try:
-        upload_url = storage.get_signed_upload_url(
-            gcs_path=gcs_path,
+        upload_url = storage.initiate_resumable_upload(
+            job_id=job_id,
+            filename=filename,
             content_type=content_type,
-            expiration_minutes=15,
         )
     except Exception as e:
-        logger.error(f"[{job_id}] Signed upload URL generation failed: {e}")
-        firestore.update_job_status(job_id, "failed", error="Could not generate upload URL")
-        raise HTTPException(status_code=500, detail="Could not generate upload URL.")
+        logger.error(f"[{job_id}] Resumable upload initiation failed: {e}")
+        firestore.update_job_status(job_id, "failed", error="Could not initiate upload")
+        raise HTTPException(status_code=500, detail="Could not initiate upload.")
 
     return {
         "jobId": job_id,
@@ -127,13 +127,7 @@ async def confirm_upload(
     logger.info(f"[{job_id}] Upload confirmed — triggering pipeline")
 
     # --- Generate signed read URL for the video player ---
-    try:
-        video_url = storage.get_signed_url(gcs_path, expiration_minutes=120)
-        firestore.write_video_url(job_id, video_url)
-        logger.info(f"[{job_id}] Signed read URL written to Firestore")
-    except Exception as e:
-        logger.warning(f"[{job_id}] Signed URL generation failed (non-fatal): {e}")
-
+    
     # --- Mark job as pending, ready for worker ---
     try:
         firestore.update_job_status(job_id, "pending", progress=25)

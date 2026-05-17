@@ -16,6 +16,12 @@ VIDEO_SIGNATURES = {
     "video/x-msvideo": [
         (0, b"RIFF"),          # AVI alternate MIME type
     ],
+    "video/x-matroska": [
+        (0, b"\x1a\x45\xdf\xa3"),  # EBML header (MKV/WebM container)
+    ],
+    "video/matroska": [
+        (0, b"\x1a\x45\xdf\xa3"),  # EBML header (MKV alternate MIME type)
+    ],
 }
 
 
@@ -55,7 +61,7 @@ def get_file_extension(filename: str) -> str:
     return "." + filename.rsplit(".", 1)[-1].lower()
 
 
-ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi"}
+ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 
 
 def validate_file_extension(filename: str) -> bool:

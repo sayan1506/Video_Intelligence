@@ -132,3 +132,42 @@ async def get_result(job_id: str):
         sentiment=summary_doc.get("sentiment") if summary_doc else None,
         actionItems=summary_doc.get("actionItems") if summary_doc else None,
     )
+
+
+@router.get("/video-url/{job_id}")
+async def get_video_url(job_id: str):
+    """
+    Generate a fresh signed GCS URL for the video player.
+
+    Called by ResultPage every time it loads. Replaces the stale
+    URL-at-upload-time pattern — signed URLs expire after 2 hours,
+    so we generate a fresh one on demand with a 7-day expiry.
+
+    Returns:
+        200 { "videoUrl": "<signed_url>" }
+        404 if job doesn't exist
+        500 if URL generation fails
+    """
+    # Read job to get gcsPath
+    try:
+        job = firestore.get_job(job_id)
+    except Exception as e:
+        logger.error(f"[{job_id}] get_video_url — Firestore read failed: {e}")
+        raise HTTPException(status_code=503, detail="Database unavailable.")
+
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
+
+    gcs_path = job.get("gcsPath")
+    if not gcs_path:
+        raise HTTPException(status_code=404, detail="Video path not found for this job.")
+
+    # Generate fresh signed URL — 7 days max for GCS v4 signed URLs
+    try:
+        from services import storage as storage_service
+        video_url = storage_service.get_signed_url(gcs_path, expiration_minutes=10080)  # 7 days
+    except Exception as e:
+        logger.error(f"[{job_id}] get_video_url — signed URL generation failed: {e}")
+        raise HTTPException(status_code=500, detail="Could not generate video URL.")
+
+    return {"videoUrl": video_url}

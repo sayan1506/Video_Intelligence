@@ -116,26 +116,28 @@ def write_results(
     scenes: List[Dict[str, Any]],
 ) -> None:
     """
-    Write AI pipeline outputs to results/{jobId} in Firestore.
+    Write AI pipeline outputs to Firestore.
 
-    Called by the orchestrator after both STT and Video Intelligence complete.
-    The backend GET /result endpoint reads from this collection.
+    Transcript is written as a subcollection (transcript_chunks/) to bypass
+    the 1 MB per-document limit. The parent results/{jobId} document stores
+    scenes, labels, and transcriptChunkCount — but NOT the transcript array.
 
-    Flattens all unique labels across scenes into a top-level `labels` array
-    for easy querying without a collection group query.
+    The backend GET /result endpoint reassembles chunks before returning.
+
+    Write order:
+        1. Transcript chunks (subcollection) — written first.
+        2. Parent document — written last, with transcriptChunkCount
+           so the backend knows how many chunks to fetch.
 
     Args:
-        job_id:     Used as the document ID in the results collection.
-        transcript: List of WordTimestamp dicts from the STT pipeline.
+        job_id:     Document ID in the results collection.
+        transcript: Full transcript — no truncation applied (BF-3 fix).
         scenes:     List of Scene dicts from the Video Intelligence pipeline.
     """
-
-    MAX_WORDS = 8000
-    if len(transcript) > MAX_WORDS:
-        logger.warning(f"[{job_id}] Transcript truncated from {len(transcript)} to {MAX_WORDS} words")
-        transcript = transcript[:MAX_WORDS]
-
     db = get_db()
+
+    # BF-3: NO truncation — full transcript always written.
+    # The old MAX_WORDS = 8000 truncation block has been removed entirely.
 
     all_labels = list({
         label
@@ -143,21 +145,79 @@ def write_results(
         for label in scene.get("labels", [])
     })
 
+    # Step 1: Write transcript chunks BEFORE parent document.
+    chunk_count = write_transcript_chunks(job_id, transcript)
+
+    # Step 2: Write parent document WITHOUT transcript field.
     doc_data = {
         "jobId": job_id,
-        "transcript": transcript,
         "scenes": scenes,
         "labels": all_labels,
+        "transcriptChunkCount": chunk_count,   # tells backend how many chunks to fetch
         "writtenAt": datetime.now(timezone.utc),
     }
 
     db.collection("results").document(job_id).set(doc_data)
+
     logger.info(
         f"[{job_id}] Results written — "
-        f"transcript words: {len(transcript)}, "
+        f"transcript words: {len(transcript)} ({chunk_count} chunks), "
         f"scenes: {len(scenes)}, "
         f"unique labels: {len(all_labels)}"
     )
+
+
+
+TRANSCRIPT_CHUNK_SIZE = 300  # words per chunk — ~25–30 KB each, well under 1 MB limit
+
+
+def write_transcript_chunks(
+    job_id: str,
+    transcript: List[Dict[str, Any]],
+) -> int:
+    """
+    Write a transcript as a subcollection of chunks under results/{jobId}/transcript_chunks/.
+
+    Splits the transcript into TRANSCRIPT_CHUNK_SIZE-word chunks and writes
+    each as a separate Firestore document. This bypasses the 1 MB per-document
+    limit — a 2-hour video with ~18,000 words becomes ~60 chunks of ~30 KB each.
+
+    Chunks are written sequentially (not in a batch) to stay within Firestore's
+    500-operation batch limit. For 60 chunks this takes ~1–2 s — acceptable.
+
+    Args:
+        job_id:     Used to build the subcollection path.
+        transcript: Full list of WordTimestamp dicts — no truncation applied here.
+
+    Returns:
+        Number of chunks written (stored as transcriptChunkCount in parent doc).
+    """
+    db = get_db()
+    chunks = [
+        transcript[i:i + TRANSCRIPT_CHUNK_SIZE]
+        for i in range(0, len(transcript), TRANSCRIPT_CHUNK_SIZE)
+    ]
+
+    chunk_ref = (
+        db.collection("results")
+        .document(job_id)
+        .collection("transcript_chunks")
+    )
+
+    for index, chunk in enumerate(chunks):
+        chunk_ref.document(str(index)).set({
+            "chunkIndex": index,
+            "words": chunk,
+            "wordCount": len(chunk),
+        })
+
+    logger.info(
+        f"[{job_id}] Transcript chunks written — "
+        f"{len(transcript)} words → {len(chunks)} chunks"
+    )
+    return len(chunks)
+
+
 
 
 def write_summary(

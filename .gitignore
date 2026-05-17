@@ -1,0 +1,27 @@
+# IDE
+.vscode/
+.idea/
+
+# Kiro
+.kiro/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+.hypothesis/
+
+# Node
+node_modules/
+
+# Environment
+.env
+*.env.local
+
+# Build
+dist/

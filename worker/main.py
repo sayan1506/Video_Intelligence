@@ -9,7 +9,8 @@ import signal
 
 load_dotenv()
 import threading
-from google.cloud import pubsub_v1
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
 from google.cloud import pubsub_v1
 from google.api_core.exceptions import GoogleAPICallError
 from pydantic import ValidationError
@@ -17,10 +18,6 @@ from pydantic import ValidationError
 from models.schemas import JobMessage
 from pipeline.orchestrator import run_pipeline
 from services import firestore
-
-
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -37,6 +34,42 @@ def start_health_server():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     logger.info(f"Health server started on port {port}")
+
+
+def ping_gemini() -> None:
+    """
+    Warm up the Gemini gRPC channel at worker startup.
+
+    Makes a single-token generate_content() call to establish and cache
+    the gRPC connection. All subsequent calls in this process reuse the
+    established channel, eliminating the ~6s cold-start latency on the
+    first real job.
+
+    Never raises — logs a warning on failure and continues.
+    """
+    import time as _time
+    from google.genai import types as _types
+    from pipeline.gemini import get_gemini_client, MODEL_NAME
+
+    ping_config = _types.GenerateContentConfig(
+        temperature=0.0,
+        max_output_tokens=1,
+    )
+
+    logger.info("Gemini warm-up: establishing gRPC channel...")
+    t0 = _time.monotonic()
+    try:
+        client = get_gemini_client()
+        client.models.generate_content(
+            model=MODEL_NAME,
+            contents="hi",
+            config=ping_config,
+        )
+        elapsed = _time.monotonic() - t0
+        logger.info(f"Gemini warm-up complete ({elapsed:.1f}s)")
+    except Exception as e:
+        elapsed = _time.monotonic() - t0
+        logger.warning(f"Gemini warm-up failed after {elapsed:.1f}s (non-fatal): {e}")
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -106,6 +139,28 @@ def process_message(message: pubsub_v1.types.PubsubMessage) -> None:
         f"[{job_id}] JobMessage valid — "
         f"file: {job_message.filename}, uri: {job_message.gcsUri}"
     )
+
+    # ── IDEMPOTENCY GUARD ──────────────────────────────────────────
+    # Pub/Sub may redeliver this message if the ack deadline expires
+    # (e.g. on very long videos). Check Firestore before doing any work.
+    # If status is already processing/completed/failed, ack and skip.
+    TERMINAL_OR_ACTIVE_STATUSES = {"processing", "completed", "failed",
+                                   "stt_done", "vi_done", "gemini_done"}
+    try:
+        job = firestore.get_job(job_message.jobId)
+        if job and job.get("status") in TERMINAL_OR_ACTIVE_STATUSES:
+            logger.warning(
+                f"[{job_id}] Job already in status '{job.get('status')}' "
+                f"— duplicate message, acking without processing"
+            )
+            message.ack()
+            return
+    except Exception as e:
+        # Can't read Firestore — safer to nack and let Pub/Sub retry
+        logger.error(f"[{job_id}] Idempotency check failed: {e} — nacking")
+        message.nack()
+        return
+    # ── END IDEMPOTENCY GUARD ──────────────────────────────────────
 
     try:
         firestore.mark_processing_started(job_message.jobId)
@@ -232,6 +287,7 @@ def _get_subscription_path() -> str:
 
 def main():
     start_health_server()
+    ping_gemini()
     subscriber = _get_subscriber()
     subscription_path = _get_subscription_path()
 

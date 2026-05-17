@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Upload, AlertCircle, Film, X, Zap, CheckCircle, Loader2 } from 'lucide-react';
 import { getUploadUrl, uploadToGcs, confirmUpload } from '../services/api';
 
-const MAX_FILE_SIZE_MB = 200;
+const MAX_FILE_SIZE_MB = 2048;
 
 export default function UploadPage() {
   const navigate = useNavigate();
@@ -41,10 +41,14 @@ export default function UploadPage() {
 
   const validateAndSetFile = (selectedFile) => {
     setError(null);
-    const validTypes = ['video/mp4', 'video/quicktime', 'video/avi'];
+    const validTypes = ['video/mp4', 'video/quicktime', 'video/avi', 'video/x-matroska', 'video/matroska'];
+    const validExtensions = ['.mp4', '.mov', '.avi', '.mkv'];
 
-    if (!validTypes.includes(selectedFile.type)) {
-      setError("Invalid file type. Please upload MP4, MOV, or AVI.");
+    const fileExtension = '.' + selectedFile.name.split('.').pop().toLowerCase();
+    const isValidType = validTypes.includes(selectedFile.type) || validExtensions.includes(fileExtension);
+
+    if (!isValidType) {
+      setError("Invalid file type. Please upload MP4, MOV, AVI, or MKV.");
       return;
     }
 
@@ -61,7 +65,7 @@ export default function UploadPage() {
     setFile(null);
     setError(null);
     if (fileInputRef.current) {
-       fileInputRef.current.value = "";
+      fileInputRef.current.value = "";
     }
   };
 
@@ -72,41 +76,43 @@ export default function UploadPage() {
     setError(null);
     setUploadStepText('Preparing upload...');
     setUploadProgress(0);
+    let currentStep = 'prepare';
 
     const fileSizeMb = file.size / (1024 * 1024);
 
+    // Resolve content type — browsers often don't recognize .mkv
+    const extensionMimeMap = { '.mkv': 'video/x-matroska' };
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    const contentType = file.type || extensionMimeMap[ext] || 'application/octet-stream';
+
     try {
       // Step 1 — get signed PUT URL from backend
-      const { jobId, uploadUrl, gcsPath } = await getUploadUrl(file.name, file.type, fileSizeMb);
+      const { jobId, uploadUrl, gcsPath } = await getUploadUrl(file.name, contentType, file.size);
 
       // Step 2 — upload directly to GCS
+      currentStep = 'upload';
       setUploadStepText('Uploading...');
       await uploadToGcs(uploadUrl, file, (percent) => {
         setUploadProgress(percent);
       });
 
-      // Step 3 — confirm and trigger AI pipeline
+      // Step 3 — confirm upload and trigger processing
+      currentStep = 'confirm';
       setUploadStepText('Confirming upload...');
-      await confirmUpload(jobId, gcsPath, file.name, file.type);
+      await confirmUpload(jobId, gcsPath, file.name, contentType);
 
-      setUploadStepText('Starting AI processing...');
       setUploadState('redirecting');
-
-      setTimeout(() => {
-        navigate('/status/' + jobId);
-      }, 1500);
-
+      navigate(`/status/${jobId}`);
     } catch (err) {
       console.error(err);
-      if (uploadStepText === 'Preparing upload...') {
+      if (currentStep === 'prepare') {
         setError("Failed to prepare upload. Please try again.");
         setUploadState('idle');
-      } else if (uploadStepText === 'Uploading...') {
+      } else if (currentStep === 'upload') {
         setError("Upload failed. Check your connection and try again.");
         setUploadState('idle');
       } else {
         setError("Upload succeeded but processing could not start. Please refresh and try again.");
-        // Do not reset to idle — file is already in GCS
       }
     }
   };
@@ -158,7 +164,7 @@ export default function UploadPage() {
                     className="hidden"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept="video/mp4,video/quicktime,video/avi"
+                    accept="video/mp4,video/quicktime,video/avi,video/x-matroska,.mkv"
                   />
                 </div>
               ) : (
