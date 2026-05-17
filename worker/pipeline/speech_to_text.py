@@ -524,7 +524,63 @@ async def transcribe(
         )
 
     # Step 3 — STT (outside tempdir so local files are cleaned up)
-    # ... rest of function unchanged from here ...
+    logger.info(f"[{job_id}] STT v2: Temp dir cleaned up, proceeding with GCS URI: {flac_gcs_uri}")
+    client = get_speech_client()
+    config = build_recognition_config(sample_rate=sample_rate)
+    recognizer = f"projects/{PROJECT_ID}/locations/global/recognizers/_"
+
+    request = cloud_speech.BatchRecognizeRequest(
+        recognizer=recognizer,
+        config=config,
+        files=[cloud_speech.BatchRecognizeFileMetadata(uri=flac_gcs_uri)],
+        recognition_output_config=cloud_speech.RecognitionOutputConfig(
+            inline_response_config=cloud_speech.InlineOutputConfig(),
+        ),
+    )
+
+    logger.info(f"[{job_id}] STT v2: Submitting BatchRecognize — {flac_gcs_uri}")
+
+    try:
+        operation = client.batch_recognize(request=request)
+    except GoogleAPICallError as e:
+        logger.error(f"[{job_id}] STT v2: BatchRecognize submit failed: {e}")
+        raise
+
+    logger.info(f"[{job_id}] STT v2: Operation started — polling...")
+
+    response = await asyncio.get_event_loop().run_in_executor(
+        None,
+        lambda: _poll_operation_with_retry(operation, job_id=job_id, timeout=3600),
+    )
+
+    logger.info(f"[{job_id}] STT v2: Complete — parsing response")
+
+    file_results = response.results.get(flac_gcs_uri)
+    if not file_results or not file_results.transcript:
+        logger.warning(f"[{job_id}] STT v2: No transcript in response")
+        return []
+
+    word_timestamps = parse_transcript_response(file_results.transcript)
+    logger.info(f"[{job_id}] STT v2: Parsed {len(word_timestamps)} words")
+
+    # Write raw STT output to GCS for debugging
+    try:
+        raw_output = {
+            "words": word_timestamps,
+            "metadata": {
+                "job_id": job_id,
+                "gcs_uri": flac_gcs_uri,
+                "word_count": len(word_timestamps),
+            },
+        }
+        write_processed_json(job_id, "stt_output.json", raw_output)
+        logger.info(f"[{job_id}] STT v2: Raw output written to GCS")
+    except Exception as e:
+        logger.warning(f"[{job_id}] STT v2: Failed to write raw output (non-fatal): {e}")
+
+    return word_timestamps
+
+
 MAX_RETRIES = 2
 RETRY_BACKOFF_SECONDS = 5
 

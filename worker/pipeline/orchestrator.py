@@ -93,7 +93,9 @@ async def run_pipeline(job_message: JobMessage) -> bool:
             logger.error(f"[{job_id}] STT failed: {transcript_result}")
             phase1_errors.append(f"Speech-to-Text: {transcript_result}")
         else:
-            transcript = transcript_result
+            transcript = transcript_result if transcript_result is not None else []
+            if transcript_result is None:
+                logger.warning(f"[{job_id}] STT returned None — treating as empty transcript")
             logger.info(f"[{job_id}] STT complete — {len(transcript)} words")
 
         if isinstance(scenes_result, Exception):
