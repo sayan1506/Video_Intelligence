@@ -2,7 +2,7 @@ import os
 import uuid
 import logging
 import datetime
-from fastapi import APIRouter, UploadFile, File, HTTPException, Header
+from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Depends
 from typing import Optional
 from google.api_core.exceptions import GoogleAPICallError, ServiceUnavailable
 from models.schemas import UploadResponse
@@ -12,6 +12,7 @@ from utils.validators import (
     validate_file_extension,
     MAGIC_BYTES_READ_LENGTH,
 )
+from middleware.auth import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ async def request_upload_url(
     file_size_bytes: int = 0,
     # Client sends the first 12 bytes of the file as a hex string for magic bytes check
     x_file_header: Optional[str] = Header(default=None),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Returns a signed GCS PUT URL. The video is never sent through Cloud Run.
@@ -84,7 +86,13 @@ async def request_upload_url(
 
     # --- Create Firestore job immediately so /status works ---
     try:
-        firestore.create_job(job_id=job_id, filename=filename, gcs_path=gcs_path)
+        firestore.create_job(
+            job_id=job_id,
+            filename=filename,
+            gcs_path=gcs_path,
+            user_id=current_user["uid"],
+            user_email=current_user.get("email", ""),
+        )
         logger.info(f"[{job_id}] Firestore job created")
     except (GoogleAPICallError, ServiceUnavailable) as e:
         logger.error(f"[{job_id}] Firestore create_job failed: {e}")
@@ -119,6 +127,7 @@ async def confirm_upload(
     filename: str,
     file_size_bytes: int = 0,
     content_type: str = "video/mp4",
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Called after the client's direct PUT to GCS succeeds.
