@@ -1,15 +1,16 @@
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from google.api_core.exceptions import GoogleAPICallError
 from models.schemas import ResultResponse, WordTimestamp, Scene, Chapter, Highlight
 from services import firestore
+from middleware.auth import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.get("/result/{job_id}", response_model=ResultResponse)
-async def get_result(job_id: str):
+async def get_result(job_id: str, current_user: dict = Depends(get_current_user)):
     """
     Return the full AI results for a completed job.
 
@@ -33,6 +34,14 @@ async def get_result(job_id: str):
         raise HTTPException(status_code=503, detail="Database service unavailable.")
 
     if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
+
+    # Ownership check — users may only read their own jobs.
+    # Jobs created before V2.0 have no userId field; allow access to those
+    # (userId == "") so legacy completed jobs remain accessible.
+    job_owner = job.get("userId", "")
+    if job_owner and job_owner != current_user["uid"]:
+        # Return 404 rather than 403 to avoid leaking job existence to other users.
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
 
     status = job["status"]
@@ -135,7 +144,7 @@ async def get_result(job_id: str):
 
 
 @router.get("/video-url/{job_id}")
-async def get_video_url(job_id: str):
+async def get_video_url(job_id: str, current_user: dict = Depends(get_current_user)):
     """
     Generate a fresh signed GCS URL for the video player.
 
@@ -156,6 +165,11 @@ async def get_video_url(job_id: str):
         raise HTTPException(status_code=503, detail="Database unavailable.")
 
     if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
+
+    # Ownership check
+    job_owner = job.get("userId", "")
+    if job_owner and job_owner != current_user["uid"]:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
 
     gcs_path = job.get("gcsPath")
