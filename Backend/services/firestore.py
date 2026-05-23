@@ -44,12 +44,25 @@ def progress_for_stage(stage: str) -> int:
 
 # ── Job lifecycle ─────────────────────────────────────────────────────────────
 
-def create_job(job_id: str, filename: str, gcs_path: str) -> str:
+def create_job(
+    job_id: str,
+    filename: str,
+    gcs_path: str,
+    user_id: str = "",
+    user_email: str = "",
+) -> str:
     """
     Create a new job document in Firestore.
 
     Returns the job_id (string) rather than the raw document dict so callers
     are never handed a dict containing non-JSON-serialisable datetime objects.
+
+    Args:
+        job_id:     Unique job identifier (UUID).
+        filename:   Original filename uploaded by the user.
+        gcs_path:   GCS object path for the raw video.
+        user_id:    Firebase UID of the owning user (V2.0+).
+        user_email: User's email address — for display in admin dashboard.
     """
     db = get_db()
     now = datetime.now(timezone.utc)
@@ -68,10 +81,13 @@ def create_job(job_id: str, filename: str, gcs_path: str) -> str:
         "processingCompletedAt": None,
         "processingTime": 0,
         "errorMessage": "",
+        # V2.0 — ownership fields
+        "userId": user_id,
+        "userEmail": user_email,
     }
 
     db.collection("jobs").document(job_id).set(job_data)
-    logger.info(f"[{job_id}] Job document created — file: {filename}")
+    logger.info(f"[{job_id}] Job document created — file: {filename}, user: {user_id or 'anonymous'}")
     return job_id
 
 
@@ -195,6 +211,40 @@ def list_recent_jobs(limit: int = 20) -> List[dict]:
         # Check Cloud Logging for the index creation URL.
         logger.error(
             f"list_recent_jobs() failed — Firestore composite index missing. "
+            f"Check Cloud Logging for the index creation URL. Original error: {e}"
+        )
+        raise
+
+
+def list_user_jobs(user_id: str, limit: int = 20) -> List[dict]:
+    """
+    Fetch the most recently created jobs for a specific user, newest first.
+
+    Requires a Firestore composite index on (userId ASC, createdAt DESC).
+    Create it in the Firebase console or via the index creation URL that
+    appears in Cloud Logging when this query first runs without the index.
+
+    Args:
+        user_id: Firebase UID to filter by.
+        limit:   Maximum jobs to return (default 20, capped at 100).
+    """
+    db = get_db()
+    limit = min(limit, 100)
+
+    try:
+        docs = (
+            db.collection("jobs")
+            .where("userId", "==", user_id)
+            .order_by("createdAt", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream()
+        )
+        return [doc.to_dict() for doc in docs]
+
+    except FailedPrecondition as e:
+        logger.error(
+            f"list_user_jobs() failed — Firestore composite index on "
+            f"(userId ASC, createdAt DESC) is missing. "
             f"Check Cloud Logging for the index creation URL. Original error: {e}"
         )
         raise
