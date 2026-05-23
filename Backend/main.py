@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 load_dotenv()
 
-from routers import upload, status, result
+from routers import upload, status, result, jobs, thumbnail
 from utils.logging_config import setup_logging
 
 
@@ -32,6 +32,8 @@ app.add_middleware(
 app.include_router(upload.router)
 app.include_router(status.router)
 app.include_router(result.router)
+app.include_router(jobs.router)
+app.include_router(thumbnail.router)
 
 
 @app.get("/health")
