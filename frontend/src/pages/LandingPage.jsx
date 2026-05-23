@@ -1,8 +1,24 @@
 import { useNavigate } from 'react-router-dom';
-import { Zap, FileText, Brain, BookOpen, Layers, Star, Activity } from 'lucide-react';
+import { Zap, FileText, Brain, BookOpen, Layers, Star, Activity, LogIn } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user, signIn, loading } = useAuth();
+
+  const handleLaunch = async () => {
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      try {
+        await signIn();
+        // onAuthStateChanged will update user; navigate after sign-in resolves
+        navigate('/dashboard');
+      } catch {
+        // sign-in cancelled or failed — stay on landing page
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-dark-base text-slate-100 font-sans selection:bg-indigo-500/30">
@@ -13,10 +29,11 @@ export default function LandingPage() {
           <span>VidIQ</span>
         </div>
         <button 
-          onClick={() => navigate('/upload')}
-          className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 transition-all text-white px-5 py-2 rounded-full font-medium"
+          onClick={handleLaunch}
+          disabled={loading}
+          className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 disabled:opacity-60 transition-all text-white px-5 py-2 rounded-full font-medium flex items-center gap-2"
         >
-          Launch App
+          {user ? 'Dashboard' : <><LogIn className="w-4 h-4" /> Sign in</>}
         </button>
       </nav>
 
@@ -41,10 +58,11 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button 
-            onClick={() => navigate('/upload')}
-            className="w-full sm:w-auto bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 transition-all text-white px-8 py-3.5 rounded-full font-medium text-lg shadow-[0_0_40px_-10px_rgba(124,58,237,0.5)]"
+            onClick={handleLaunch}
+            disabled={loading}
+            className="w-full sm:w-auto bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 disabled:opacity-60 transition-all text-white px-8 py-3.5 rounded-full font-medium text-lg shadow-[0_0_40px_-10px_rgba(124,58,237,0.5)]"
           >
-            Analyse a Video &rarr;
+            {user ? 'Go to Dashboard →' : 'Analyse a Video →'}
           </button>
           <a 
             href="#features"

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Upload, AlertCircle, Film, X, Zap, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, AlertCircle, Film, X, Zap, CheckCircle, Loader2, LayoutDashboard } from 'lucide-react';
 import { getUploadUrl, uploadToGcs, confirmUpload } from '../services/api';
 
 const MAX_FILE_SIZE_MB = 2048;
@@ -124,6 +124,13 @@ export default function UploadPage() {
         <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Zap className="w-6 h-6 text-violet-500" fill="currentColor" />
           <span>VidIQ</span>
+        </Link>
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          Dashboard
         </Link>
       </nav>
 

@@ -1,10 +1,30 @@
 import axios from 'axios'
+import { auth } from '../lib/firebase'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 60000,  // 60s — enough for signed URL requests and confirm calls
+})
+
+/**
+ * Request interceptor — attaches a fresh Firebase ID token to every request.
+ *
+ * If no user is signed in (auth.currentUser is null) the request goes through
+ * without an Authorization header. The backend will return 401 for protected
+ * routes, which the caller can handle.
+ *
+ * Token refresh is handled automatically by Firebase SDK — getIdToken() will
+ * silently refresh if the token is within 5 minutes of expiry.
+ */
+api.interceptors.request.use(async (config) => {
+  const user = auth.currentUser
+  if (user) {
+    const token = await user.getIdToken(/* forceRefresh */ false)
+    config.headers['Authorization'] = `Bearer ${token}`
+  }
+  return config
 })
 
 /**
@@ -136,6 +156,28 @@ export async function getResult(jobId) {
 export async function getVideoUrl(jobId) {
   const response = await api.get(`/video-url/${jobId}`)
   return response.data.videoUrl
+}
+
+/**
+ * Fetch the authenticated user's job list, newest first.
+ * Corresponds to GET /jobs on the backend.
+ *
+ * @param {number} limit - Max jobs to return (default 20)
+ */
+export async function getJobs(limit = 20) {
+  const response = await api.get('/jobs', { params: { limit } })
+  return response.data.jobs  // array of job docs
+}
+
+/**
+ * Fetch a fresh signed thumbnail URL for a job.
+ * Corresponds to GET /thumbnail-url/{jobId} on the backend.
+ *
+ * @param {string} jobId
+ */
+export async function getThumbnailUrl(jobId) {
+  const response = await api.get(`/thumbnail-url/${jobId}`)
+  return response.data.thumbnailUrl
 }
 
 /**
