@@ -17,16 +17,25 @@ AUDIO_ONLY_MIME_TYPES = {
 
 import asyncio
 import logging
+import os
+import shutil
+import subprocess
+import tempfile
 import time
 from typing import List, Dict, Any
 
+from google.cloud import storage as gcs_storage
+
 from models.schemas import JobMessage
-from pipeline.speech_to_text import transcribe
+from pipeline.speech_to_text import transcribe, download_from_gcs
 from pipeline.video_intelligence import analyse_video
 from pipeline.gemini import generate_summary   # stub today, real in Week 4
 from services import firestore
 
 logger = logging.getLogger(__name__)
+
+BUCKET_NAME = os.getenv("GCP_BUCKET_NAME")
+FFMPEG_PATH = shutil.which("ffmpeg") or "ffmpeg"
 
 
 async def run_pipeline(job_message: JobMessage) -> bool:
@@ -118,6 +127,22 @@ async def run_pipeline(job_message: JobMessage) -> bool:
 
         # Both done — set progress=75 regardless of which finished first
         firestore.update_job_status(job_id, "processing", progress=75)
+
+    # -----------------------------------------------------------------------
+    # Thumbnail extraction (A5) — best-effort, never fails the pipeline
+    # -----------------------------------------------------------------------
+    # Skip for audio-only files — there are no video frames to extract.
+    if not is_audio_only:
+        try:
+            thumbnail_gcs_path = await _extract_and_upload_thumbnail(
+                gcs_uri=gcs_uri,
+                job_id=job_id,
+            )
+            if thumbnail_gcs_path:
+                firestore.write_thumbnail_gcs_path(job_id, thumbnail_gcs_path)
+        except Exception as e:
+            # Non-fatal — dashboard will show a placeholder if thumbnail is missing
+            logger.warning(f"[{job_id}] Thumbnail extraction failed (non-fatal): {e}")
 
     # -----------------------------------------------------------------------
     # Phase 2 — Gemini summary
@@ -224,3 +249,86 @@ async def _run_vi_with_progress(gcs_uri: str, job_id: str) -> list:
     except Exception:
         pass
     return result
+
+
+async def _extract_and_upload_thumbnail(gcs_uri: str, job_id: str) -> str | None:
+    """
+    Extract a single thumbnail frame from the video at 10% of its duration
+    and upload it to GCS at processed/{jobId}/thumbnail.jpg.
+
+    Uses ffmpeg (already installed in the worker Dockerfile) and the same
+    download pattern as speech_to_text.py.
+
+    Args:
+        gcs_uri: GCS URI of the raw video (gs://bucket/raw-videos/...).
+        job_id:  For logging and GCS path construction.
+
+    Returns:
+        GCS object path of the uploaded thumbnail, e.g.
+        "processed/{jobId}/thumbnail.jpg" — or None on failure.
+    """
+    if not BUCKET_NAME:
+        logger.warning(f"[{job_id}] Thumbnail: GCP_BUCKET_NAME not set — skipping")
+        return None
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        video_path = os.path.join(tmpdir, "video_thumb.mp4")
+        thumb_path = os.path.join(tmpdir, "thumbnail.jpg")
+
+        # Step 1: download video
+        logger.info(f"[{job_id}] Thumbnail: downloading video for frame extraction")
+        await asyncio.get_event_loop().run_in_executor(
+            None, download_from_gcs, gcs_uri, video_path
+        )
+
+        # Step 2: get duration via ffprobe
+        ffprobe_path = shutil.which("ffprobe") or "ffprobe"
+        probe_cmd = [
+            ffprobe_path,
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            video_path,
+        ]
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        duration = 0.0
+        if probe_result.returncode == 0 and probe_result.stdout.strip():
+            try:
+                duration = float(probe_result.stdout.strip())
+            except ValueError:
+                pass
+
+        # Seek to 10% of duration; fall back to 5s for very short clips
+        seek_time = max(duration * 0.1, 5.0) if duration > 10 else 1.0
+        logger.info(f"[{job_id}] Thumbnail: extracting frame at {seek_time:.1f}s (duration={duration:.1f}s)")
+
+        # Step 3: extract frame with ffmpeg
+        ffmpeg_cmd = [
+            FFMPEG_PATH,
+            "-ss", str(seek_time),
+            "-i", video_path,
+            "-vframes", "1",
+            "-q:v", "2",          # JPEG quality 2 = high quality, ~50–100 KB
+            "-y",
+            thumb_path,
+        ]
+        ffmpeg_result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+        if ffmpeg_result.returncode != 0:
+            raise RuntimeError(f"ffmpeg thumbnail extraction failed: {ffmpeg_result.stderr}")
+
+        if not os.path.exists(thumb_path) or os.path.getsize(thumb_path) == 0:
+            raise RuntimeError("ffmpeg produced an empty thumbnail file")
+
+        # Step 4: upload to GCS
+        gcs_path = f"processed/{job_id}/thumbnail.jpg"
+        client = gcs_storage.Client()
+        bucket = client.bucket(BUCKET_NAME)
+        blob = bucket.blob(gcs_path)
+
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: blob.upload_from_filename(thumb_path, content_type="image/jpeg"),
+        )
+
+        logger.info(f"[{job_id}] Thumbnail uploaded → {gcs_path}")
+        return gcs_path

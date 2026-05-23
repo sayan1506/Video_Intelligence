@@ -252,7 +252,24 @@ def write_summary(
 
 
 
-def write_gemini_usage(
+def write_thumbnail_gcs_path(job_id: str, thumbnail_gcs_path: str) -> None:
+    """
+    Write the GCS path of the extracted thumbnail to the job document.
+
+    Called by the orchestrator after the thumbnail is uploaded to GCS.
+    The backend GET /thumbnail-url endpoint reads this field to generate
+    a signed URL for the dashboard card.
+
+    Args:
+        job_id:              The job to update.
+        thumbnail_gcs_path:  GCS object path, e.g. processed/{jobId}/thumbnail.jpg
+    """
+    db = get_db()
+    db.collection("jobs").document(job_id).update({
+        "thumbnailGcsPath": thumbnail_gcs_path,
+        "updatedAt": datetime.now(timezone.utc),
+    })
+    logger.info(f"[{job_id}] thumbnailGcsPath written → {thumbnail_gcs_path}")
     job_id: str,
     input_tokens: int,
     output_tokens: int,
