@@ -4,9 +4,9 @@
 ADAPTIVE_FFMPEG_THRESHOLD_SECONDS = 1800  # 30 minutes
 
 
-# Chunk duration in seconds. 5 minutes = 300s.
-# Chosen to keep each FLAC chunk well under BatchRecognize's inline response limit.
-CHUNK_DURATION_SECONDS = 300
+# Chunk duration in seconds. 10 minutes = 600s.
+# Doubled from 300s to halve the number of GCS uploads and BatchRecognize operations.
+CHUNK_DURATION_SECONDS = 600
 
 # Minimum video duration (in seconds) to bother chunking.
 # Videos shorter than this go through the existing whole-file path — no overhead.
@@ -344,32 +344,117 @@ async def transcribe_chunk(
 
 
 
+def _extract_thumbnail_bytes(video_path: str, job_id: str) -> bytes | None:
+    """
+    Extract a single JPEG thumbnail frame from a local video file.
+
+    Runs ffprobe to get duration, then ffmpeg to extract a frame at 10% of
+    duration (or 1.0s for very short clips). Returns the raw JPEG bytes.
+
+    Args:
+        video_path: Local path to the video file.
+        job_id:     For logging.
+
+    Returns:
+        JPEG bytes of the thumbnail, or None on any failure (non-fatal).
+    """
+    try:
+        ffprobe_path = shutil.which("ffprobe") or "ffprobe"
+        probe_cmd = [
+            ffprobe_path,
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            video_path,
+        ]
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        duration = 0.0
+        if probe_result.returncode == 0 and probe_result.stdout.strip():
+            try:
+                duration = float(probe_result.stdout.strip())
+            except ValueError:
+                pass
+
+        # Seek to 10% of duration; fall back to 5s for clips > 10s, 1s for very short
+        seek_time = max(duration * 0.1, 5.0) if duration > 10 else 1.0
+        logger.info(
+            f"[{job_id}] Thumbnail: extracting frame at {seek_time:.1f}s "
+            f"(duration={duration:.1f}s)"
+        )
+
+        with tempfile.TemporaryDirectory() as thumb_dir:
+            thumb_path = os.path.join(thumb_dir, "thumbnail.jpg")
+            ffmpeg_cmd = [
+                FFMPEG_PATH,
+                "-ss", str(seek_time),
+                "-i", video_path,
+                "-vframes", "1",
+                "-q:v", "2",
+                "-y",
+                thumb_path,
+            ]
+            ffmpeg_result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+            if ffmpeg_result.returncode != 0:
+                logger.warning(
+                    f"[{job_id}] Thumbnail: ffmpeg failed: {ffmpeg_result.stderr}"
+                )
+                return None
+
+            if not os.path.exists(thumb_path) or os.path.getsize(thumb_path) == 0:
+                logger.warning(f"[{job_id}] Thumbnail: ffmpeg produced empty file")
+                return None
+
+            with open(thumb_path, "rb") as f:
+                thumb_bytes = f.read()
+
+        logger.info(f"[{job_id}] Thumbnail: extracted {len(thumb_bytes)} bytes")
+        return thumb_bytes
+
+    except Exception as e:
+        logger.warning(f"[{job_id}] Thumbnail extraction failed (non-fatal): {e}")
+        return None
+
+
 async def transcribe_chunked(
     video_path: str,
     job_id: str,
     sample_rate: int = 16000,
-) -> list[dict]:
+    extract_thumbnail: bool = False,
+) -> list[dict] | tuple[list[dict], bytes | None]:
     """
     Full chunked STT pipeline for long videos.
 
-    1. Split video audio into CHUNK_DURATION_SECONDS-length FLAC segments.
-    2. Upload all chunks to GCS concurrently.
-    3. Submit all BatchRecognize operations concurrently via asyncio.gather().
-    4. Merge results in order, with corrected absolute timestamps.
+    1. Optionally extract thumbnail bytes before chunking begins (same tmpdir).
+    2. Split video audio into CHUNK_DURATION_SECONDS-length FLAC segments.
+    3. Upload all chunks to GCS concurrently.
+    4. Submit all BatchRecognize operations concurrently via asyncio.gather().
+    5. Merge results in order, with corrected absolute timestamps.
 
     Uses a temporary directory for local chunk files — cleaned up automatically.
 
     Args:
-        video_path: Local path to the downloaded video file.
-        job_id:     For logging and GCS path construction.
+        video_path:         Local path to the downloaded video file.
+        job_id:             For logging and GCS path construction.
+        sample_rate:        Audio sample rate for FLAC chunks.
+        extract_thumbnail:  When True, extract a JPEG thumbnail frame and
+                            return (word_list, thumb_bytes). When False
+                            (default), return word_list only.
 
     Returns:
-        Flat list of word dicts with absolute timestamps, ordered by startTime.
+        When extract_thumbnail=False: flat list of word dicts.
+        When extract_thumbnail=True:  tuple (word_list, thumb_bytes | None).
 
     Raises:
         RuntimeError: If ALL chunks fail. Partial failures are tolerated
                       (missing chunk = gap in transcript, logged as warning).
     """
+    # Extract thumbnail before chunking begins — video_path is already local
+    thumb_bytes: bytes | None = None
+    if extract_thumbnail:
+        thumb_bytes = await asyncio.get_event_loop().run_in_executor(
+            None, _extract_thumbnail_bytes, video_path, job_id
+        )
+
     with tempfile.TemporaryDirectory() as chunk_dir:
         # Step 1: split audio into FLAC chunks
         logger.info(f"[{job_id}] Chunked STT: splitting audio...")
@@ -428,6 +513,9 @@ async def transcribe_chunked(
         f"[{job_id}] Chunked STT complete — "
         f"{len(all_words)} words from {len(valid_chunks) - len(failed_chunks)} chunks"
     )
+
+    if extract_thumbnail:
+        return (all_words, thumb_bytes)
     return all_words
 
 
@@ -462,7 +550,8 @@ def parse_transcript_response(
 async def transcribe(
     gcs_uri: str,
     job_id: str = "unknown",
-) -> list[dict]:
+    extract_thumbnail: bool = False,
+) -> list[dict] | tuple[list[dict], bytes | None]:
     """
     Transcribe a video file to a flat list of word-timestamp dicts.
 
@@ -477,11 +566,16 @@ async def transcribe(
     {word, startTime, endTime, speaker} dicts with absolute timestamps.
 
     Args:
-        gcs_uri: GCS URI of the video file (gs://bucket/path/video.mp4).
-        job_id:  For logging.
+        gcs_uri:            GCS URI of the video file (gs://bucket/path/video.mp4).
+        job_id:             For logging.
+        extract_thumbnail:  When True, extract a JPEG thumbnail frame from the
+                            already-downloaded local video (before tmpdir closes)
+                            and return (word_list, thumb_bytes). When False
+                            (default), return word_list only — backward compatible.
 
     Returns:
-        Flat list of word dicts ordered by startTime.
+        When extract_thumbnail=False: flat list of word dicts ordered by startTime.
+        When extract_thumbnail=True:  tuple (word_list, thumb_bytes | None).
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         video_path = os.path.join(tmpdir, "video.mp4")
@@ -506,10 +600,21 @@ async def transcribe(
         # ── Chunked path for long videos ───────────────────────────────────
         if duration > CHUNK_THRESHOLD_SECONDS:
             logger.info(f"[{job_id}] Using PARALLEL CHUNKED STT ({duration:.0f}s video)")
-            return await transcribe_chunked(video_path, job_id, sample_rate=sample_rate)
+            return await transcribe_chunked(
+                video_path, job_id,
+                sample_rate=sample_rate,
+                extract_thumbnail=extract_thumbnail,
+            )
 
         # ── Whole-file path for short videos ──────────────────────────────
         logger.info(f"[{job_id}] Using whole-file STT ({duration:.0f}s video)")
+
+        # Extract thumbnail before tmpdir closes — video is already local
+        thumb_bytes: bytes | None = None
+        if extract_thumbnail:
+            thumb_bytes = await asyncio.get_event_loop().run_in_executor(
+                None, _extract_thumbnail_bytes, video_path, job_id
+            )
 
         flac_path = os.path.join(tmpdir, "audio.flac")
 
@@ -558,6 +663,8 @@ async def transcribe(
     file_results = response.results.get(flac_gcs_uri)
     if not file_results or not file_results.transcript:
         logger.warning(f"[{job_id}] STT v2: No transcript in response")
+        if extract_thumbnail:
+            return ([], thumb_bytes)
         return []
 
     word_timestamps = parse_transcript_response(file_results.transcript)
@@ -578,6 +685,8 @@ async def transcribe(
     except Exception as e:
         logger.warning(f"[{job_id}] STT v2: Failed to write raw output (non-fatal): {e}")
 
+    if extract_thumbnail:
+        return (word_timestamps, thumb_bytes)
     return word_timestamps
 
 
