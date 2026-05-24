@@ -81,6 +81,21 @@ async def upload_to_gcs(
     return destination_path
 
 
+
+def upload_thumbnail_to_gcs(local_path: str, job_id: str) -> str:
+    """
+    Upload a JPEG thumbnail to GCS at processed/{jobId}/thumbnail.jpg
+    """
+    client = get_storage_client()
+    bucket = client.bucket(BUCKET_NAME)
+    gcs_path = f"processed/{job_id}/thumbnail.jpg"
+    blob = bucket.blob(gcs_path)
+    blob.upload_from_filename(local_path, content_type="image/jpeg", timeout=60)
+    logger.info(f"[{job_id}] Thumbnail uploaded → {gcs_path}")
+    return gcs_path
+
+
+
 def get_signed_url(gcs_path: str, expiration_minutes: int = 120) -> str:
     source_credentials, project = google.auth.default()
     source_credentials.refresh(google.auth.transport.requests.Request())

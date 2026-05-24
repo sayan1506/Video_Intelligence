@@ -270,12 +270,14 @@ def write_thumbnail_gcs_path(job_id: str, thumbnail_gcs_path: str) -> None:
         "updatedAt": datetime.now(timezone.utc),
     })
     logger.info(f"[{job_id}] thumbnailGcsPath written → {thumbnail_gcs_path}")
-    job_id: str,
-    input_tokens: int,
-    output_tokens: int,
-) -> None:
-    """
-    Write Gemini token usage to the job document for cost tracking.
+
+    def write_token_usage(
+        job_id: str,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> None:
+        """
+        Write Gemini token usage to the job document for cost tracking.
 
     Called by generate_summary() after every successful Gemini API call.
     Enables per-job cost visibility in the Firestore console and
