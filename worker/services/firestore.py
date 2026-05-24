@@ -271,7 +271,7 @@ def write_thumbnail_gcs_path(job_id: str, thumbnail_gcs_path: str) -> None:
     })
     logger.info(f"[{job_id}] thumbnailGcsPath written → {thumbnail_gcs_path}")
 
-    def write_token_usage(
+    def write_gemini_usage(
         job_id: str,
         input_tokens: int,
         output_tokens: int,
