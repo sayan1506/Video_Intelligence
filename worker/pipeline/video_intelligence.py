@@ -84,11 +84,15 @@ def _find_labels_for_shot(
 async def analyse_video(
     gcs_uri: str,
     job_id: str = "unknown",
+    duration_seconds: float = 0,
 ) -> List[Dict[str, Any]]:
     """
     Analyse a video using the GCP Video Intelligence API.
 
-    Submits SHOT_CHANGE_DETECTION + LABEL_DETECTION in a single API call.
+    For videos <= 1800s: submits SHOT_CHANGE_DETECTION + LABEL_DETECTION.
+    For videos > 1800s: submits SHOT_CHANGE_DETECTION only (skips LABEL_DETECTION
+    to reduce API time on long recordings where labels have diminishing value).
+
     The API reads directly from the GCS URI — no download or audio extraction
     needed (contrast with the STT pipeline which requires ffmpeg).
 
@@ -101,6 +105,9 @@ async def analyse_video(
                  e.g. gs://video-intelligence-raw/raw-videos/{jobId}/video.mp4
                  This is JobMessage.gcsUri — use it directly.
         job_id: For logging and GCS raw output path.
+        duration_seconds: Video duration in seconds. When > 1800, LABEL_DETECTION
+                          is skipped. Default 0 preserves existing behavior
+                          (both features used) for callers that don't pass duration.
 
     Returns:
         List of Scene dicts matching worker/models/schemas.py Scene shape:
@@ -113,28 +120,37 @@ async def analyse_video(
     """
     client = get_video_client()
 
-    features = [
-        videointelligence.Feature.SHOT_CHANGE_DETECTION,
-        videointelligence.Feature.LABEL_DETECTION,
-    ]
-
-    label_config = videointelligence.LabelDetectionConfig(
-        label_detection_mode=videointelligence.LabelDetectionMode.SHOT_AND_FRAME_MODE,
-    )
-
-    video_context = videointelligence.VideoContext(
-        label_detection_config=label_config,
-    )
+    if duration_seconds > 1800:
+        # Long video: skip LABEL_DETECTION to reduce API time
+        features = [videointelligence.Feature.SHOT_CHANGE_DETECTION]
+        video_context = None
+        logger.info(
+            f"[{job_id}] duration={duration_seconds}s > 1800s — "
+            f"using SHOT_CHANGE_DETECTION only (skipping LABEL_DETECTION)"
+        )
+    else:
+        # Short/default video: use both features as before
+        features = [
+            videointelligence.Feature.SHOT_CHANGE_DETECTION,
+            videointelligence.Feature.LABEL_DETECTION,
+        ]
+        label_config = videointelligence.LabelDetectionConfig(
+            label_detection_mode=videointelligence.LabelDetectionMode.SHOT_AND_FRAME_MODE,
+        )
+        video_context = videointelligence.VideoContext(
+            label_detection_config=label_config,
+        )
 
     logger.info(f"[{job_id}] Submitting Video Intelligence job — {gcs_uri}")
 
-    operation = client.annotate_video(
-        request={
-            "features": features,
-            "input_uri": gcs_uri,
-            "video_context": video_context,
-        }
-    )
+    request = {
+        "features": features,
+        "input_uri": gcs_uri,
+    }
+    if video_context is not None:
+        request["video_context"] = video_context
+
+    operation = client.annotate_video(request=request)
 
     logger.info(f"[{job_id}] Video Intelligence operation started — polling...")
 
