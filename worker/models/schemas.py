@@ -10,7 +10,7 @@ class WordTimestamp(BaseModel):
     word: str
     startTime: float    # seconds from video start
     endTime: float      # seconds from video start
-    speaker: int        # speaker tag (1 or 2 for V1 diarization)
+    speaker: int = 0    # 0 = unknown, 1+ = speaker label
 
 
 class Scene(BaseModel):

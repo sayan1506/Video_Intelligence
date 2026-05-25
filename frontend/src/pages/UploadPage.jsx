@@ -105,7 +105,10 @@ export default function UploadPage() {
       navigate(`/status/${jobId}`);
     } catch (err) {
       console.error(err);
-      if (currentStep === 'prepare') {
+      if (err.response?.status === 429) {
+        setError(err.response.data?.detail || 'Monthly video limit reached. Upgrade to Pro for more.');
+        setUploadState('idle');
+      } else if (currentStep === 'prepare') {
         setError("Failed to prepare upload. Please try again.");
         setUploadState('idle');
       } else if (currentStep === 'upload') {

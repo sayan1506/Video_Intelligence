@@ -25,7 +25,7 @@ class WordTimestamp(BaseModel):
     word: str
     startTime: float
     endTime: float
-    speaker: int = 1          # Defaults to 1 — STT v2 doesn't provide diarization
+    speaker: int = 0    # 0 = unknown, 1+ = speaker label
 
 class Scene(BaseModel):
     startTime: float
@@ -63,6 +63,16 @@ class ResultResponse(BaseModel):
     highlights: Optional[List[Highlight]] = None
     sentiment: Optional[str] = None
     actionItems: Optional[List[str]] = None
+
+    # C1 — Cost tracking fields (from jobs/{jobId})
+    sttAudioMinutes: Optional[float] = None
+    sttEstimatedCostUsd: Optional[float] = None
+    viVideoMinutes: Optional[float] = None
+    viEstimatedCostUsd: Optional[float] = None
+    geminiInputTokens: Optional[int] = None
+    geminiOutputTokens: Optional[int] = None
+    geminiEstimatedCostUsd: Optional[float] = None
+    totalEstimatedCostUsd: Optional[float] = None
 
 
 class JobMessage(BaseModel):

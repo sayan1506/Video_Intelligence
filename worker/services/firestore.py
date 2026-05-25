@@ -108,6 +108,18 @@ def get_job(job_id: str) -> dict | None:
     return doc.to_dict() if doc.exists else None
 
 
+def write_job_fields(job_id: str, fields: dict) -> None:
+    """
+    Partial update on the jobs/{jobId} document.
+    Used for writing cost fields (C1) and any other ad-hoc job doc updates
+    that don't warrant a named function.
+    """
+    db = get_db()
+    fields["updatedAt"] = datetime.now(timezone.utc)
+    db.collection("jobs").document(job_id).update(fields)
+    logger.debug(f"[{job_id}] write_job_fields: {list(fields.keys())}")
+
+
 # ── Result writers (added Week 3, Day 3) ─────────────────────────────────────
 
 def write_results(
@@ -271,13 +283,14 @@ def write_thumbnail_gcs_path(job_id: str, thumbnail_gcs_path: str) -> None:
     })
     logger.info(f"[{job_id}] thumbnailGcsPath written → {thumbnail_gcs_path}")
 
-    def write_gemini_usage(
-        job_id: str,
-        input_tokens: int,
-        output_tokens: int,
-    ) -> None:
-        """
-        Write Gemini token usage to the job document for cost tracking.
+
+def write_gemini_usage(
+    job_id: str,
+    input_tokens: int,
+    output_tokens: int,
+) -> None:
+    """
+    Write Gemini token usage to the job document for cost tracking.
 
     Called by generate_summary() after every successful Gemini API call.
     Enables per-job cost visibility in the Firestore console and
@@ -292,7 +305,6 @@ def write_thumbnail_gcs_path(job_id: str, thumbnail_gcs_path: str) -> None:
         input_tokens: Prompt token count from response.usage_metadata.
         output_tokens: Candidates token count from response.usage_metadata.
     """
-    from datetime import datetime, timezone
     db = get_db()
 
     # Estimated cost in USD — informational only, not billed directly
@@ -307,3 +319,4 @@ def write_thumbnail_gcs_path(job_id: str, thumbnail_gcs_path: str) -> None:
         "geminiEstimatedCostUsd": estimated_cost_usd,
         "updatedAt": datetime.now(timezone.utc),
     })
+    logger.info(f"[{job_id}] Gemini usage written — input: {input_tokens}, output: {output_tokens}, cost: ${estimated_cost_usd}")

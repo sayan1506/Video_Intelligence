@@ -64,6 +64,8 @@ async def run_pipeline(job_message: JobMessage) -> bool:
 
     transcript: list = []
     scenes: list = []
+    stt_cost: float = 0.0
+    vi_cost: float = 0.0
 
     if is_audio_only:
         # Audio-only path: run STT only, skip VI entirely
@@ -82,6 +84,15 @@ async def run_pipeline(job_message: JobMessage) -> bool:
         scenes = []
         logger.info(f"[{job_id}] STT complete — {len(transcript)} words")
         firestore.update_job_status(job_id, "processing", progress=75)
+
+        # C1: write STT cost estimate (derive duration from transcript end time)
+        duration = transcript[-1]["endTime"] if transcript else 0.0
+        stt_minutes = round(duration / 60, 3)
+        stt_cost = round(stt_minutes * 0.016, 4)   # $0.016 per minute (STT v2 BatchRecognize)
+        firestore.write_job_fields(job_id, {
+            "sttAudioMinutes": stt_minutes,
+            "sttEstimatedCostUsd": stt_cost,
+        })
 
     else:
         # Video path: run STT + VI concurrently (existing behavior)
@@ -128,6 +139,24 @@ async def run_pipeline(job_message: JobMessage) -> bool:
         # Both done — set progress=75 regardless of which finished first
         firestore.update_job_status(job_id, "processing", progress=75)
 
+        # C1: write STT cost estimate (derive duration from transcript end time)
+        duration = transcript[-1]["endTime"] if transcript else 0.0
+        stt_minutes = round(duration / 60, 3)
+        stt_cost = round(stt_minutes * 0.016, 4)   # $0.016 per minute (STT v2 BatchRecognize)
+        firestore.write_job_fields(job_id, {
+            "sttAudioMinutes": stt_minutes,
+            "sttEstimatedCostUsd": stt_cost,
+        })
+
+        # C1: write VI cost estimate (derive duration from scenes or transcript)
+        vi_duration = scenes[-1]["endTime"] if scenes else duration
+        vi_minutes = round(vi_duration / 60, 3)
+        vi_cost = round(vi_minutes * 0.10, 4)   # $0.10 per minute (Video Intelligence API)
+        firestore.write_job_fields(job_id, {
+            "viVideoMinutes": vi_minutes,
+            "viEstimatedCostUsd": vi_cost,
+        })
+
     # -----------------------------------------------------------------------
     # Thumbnail extraction (A5) — best-effort, never fails the pipeline
     # -----------------------------------------------------------------------
@@ -169,6 +198,13 @@ async def run_pipeline(job_message: JobMessage) -> bool:
             "sentiment": "neutral",
             "actionItems": [],
         }
+
+    # C1: compute total cost
+    # geminiEstimatedCostUsd is already written by write_gemini_usage() in gemini.py
+    job_doc = firestore.get_job(job_id)
+    gemini_cost = job_doc.get("geminiEstimatedCostUsd", 0.0) if job_doc else 0.0
+    total_cost = round(stt_cost + vi_cost + gemini_cost, 4)
+    firestore.write_job_fields(job_id, {"totalEstimatedCostUsd": total_cost})
 
     # -----------------------------------------------------------------------
     # Phase 3 — Write results to Firestore

@@ -10,6 +10,16 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo }) {
   const activeWordRef = useRef(null);
   const scrollContainerRef = useRef(null);
 
+  const SPEAKER_COLORS = [
+    '',                        // 0 = unknown / chunked path — no colour
+    'text-violet-400',         // Speaker 1
+    'text-emerald-400',        // Speaker 2
+    'text-amber-400',          // Speaker 3
+    'text-sky-400',            // Speaker 4
+    'text-rose-400',           // Speaker 5
+    'text-orange-400',         // Speaker 6
+  ];
+
   const filteredTranscriptIds = useMemo(() => {
     if (!query) return null; // null means no search is active
     const lowerQuery = query.toLowerCase();
@@ -74,23 +84,33 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo }) {
             {transcript.map((wordObj, i) => {
               const isActive = isActiveWord(wordObj, currentTime);
               const isSearchMatch = filteredTranscriptIds && filteredTranscriptIds.has(i);
+              const prevWord = i > 0 ? transcript[i - 1] : null;
+              const speakerChanged = wordObj.speaker > 0 && (!prevWord || prevWord.speaker !== wordObj.speaker);
 
               return (
-                <span
-                  key={i}
-                  ref={isActive ? activeWordRef : null}
-                  onClick={() => seekTo(wordObj.startTime)}
-                  className={`
-                    cursor-pointer rounded px-0.5 py-0.5 text-sm transition-colors duration-150 inline-block
-                    ${isActive
-                      ? 'bg-violet-500/80 text-white font-medium shadow-sm'
-                      : isSearchMatch
-                      ? 'bg-amber-500/40 text-amber-100 font-medium'
-                      : 'text-slate-300 hover:text-white hover:bg-white/10'
-                    }
-                  `}
-                >
-                  {wordObj.word}
+                <span key={i}>
+                  {speakerChanged && (
+                    <span className={`basis-full block text-xs font-semibold mt-3 mb-1 ${SPEAKER_COLORS[wordObj.speaker] || 'text-slate-400'}`}>
+                      Speaker {wordObj.speaker}
+                    </span>
+                  )}
+                  <span
+                    ref={isActive ? activeWordRef : null}
+                    onClick={() => seekTo(wordObj.startTime)}
+                    className={`
+                      cursor-pointer rounded px-0.5 py-0.5 text-sm transition-colors duration-150 inline-block
+                      ${isActive
+                        ? 'bg-violet-500/80 text-white font-medium shadow-sm'
+                        : isSearchMatch
+                        ? 'bg-amber-500/40 text-amber-100 font-medium'
+                        : wordObj.speaker > 0
+                        ? `${SPEAKER_COLORS[wordObj.speaker] || ''} hover:bg-white/10`
+                        : 'text-slate-300 hover:text-white hover:bg-white/10'
+                      }
+                    `}
+                  >
+                    {wordObj.word}
+                  </span>
                 </span>
               );
             })}

@@ -140,6 +140,16 @@ async def get_result(job_id: str, current_user: dict = Depends(get_current_user)
         highlights=highlights,
         sentiment=summary_doc.get("sentiment") if summary_doc else None,
         actionItems=summary_doc.get("actionItems") if summary_doc else None,
+
+        # C1 — Cost tracking
+        sttAudioMinutes=job.get("sttAudioMinutes"),
+        sttEstimatedCostUsd=job.get("sttEstimatedCostUsd"),
+        viVideoMinutes=job.get("viVideoMinutes"),
+        viEstimatedCostUsd=job.get("viEstimatedCostUsd"),
+        geminiInputTokens=job.get("geminiInputTokens"),
+        geminiOutputTokens=job.get("geminiOutputTokens"),
+        geminiEstimatedCostUsd=job.get("geminiEstimatedCostUsd"),
+        totalEstimatedCostUsd=job.get("totalEstimatedCostUsd"),
     )
 
 

@@ -49,19 +49,39 @@ def get_speech_client() -> SpeechClient:
     return SpeechClient()
 
 
-def build_recognition_config(sample_rate: int = 16000) -> cloud_speech.RecognitionConfig:
+def build_recognition_config(
+    sample_rate: int = 16000,
+    enable_diarization: bool = False,
+) -> cloud_speech.RecognitionConfig:
+    """
+    Build STT v2 RecognitionConfig.
+    Diarization is only enabled on the whole-file path (videos <= CHUNK_THRESHOLD_SECONDS).
+    BatchRecognize does not support diarization in the same request as word timestamps
+    for the chunked path — speaker labels on chunked audio would require cross-chunk
+    reconciliation which is out of scope for V2.0.
+    """
+    diarization_config = None
+    if enable_diarization:
+        diarization_config = cloud_speech.SpeakerDiarizationConfig(
+            min_speaker_count=1,
+            max_speaker_count=6,
+        )
+
+    features = cloud_speech.RecognitionFeatures(
+        enable_word_time_offsets=True,
+        enable_automatic_punctuation=True,
+        diarization_config=diarization_config,
+    )
+
     return cloud_speech.RecognitionConfig(
         explicit_decoding_config=cloud_speech.ExplicitDecodingConfig(
             encoding=cloud_speech.ExplicitDecodingConfig.AudioEncoding.FLAC,
             sample_rate_hertz=sample_rate,
             audio_channel_count=1,
         ),
-        language_codes=["hi-IN", "en-US"],
+        language_codes=["hi-IN", "en-IN"],
         model="long",
-        features=cloud_speech.RecognitionFeatures(
-            enable_word_time_offsets=True,
-            enable_automatic_punctuation=True,
-        ),
+        features=features,
     )
 
 
@@ -329,7 +349,7 @@ async def transcribe_chunk(
             "word":      w["word"],
             "startTime": round(w["startTime"] + start_offset_seconds, 3),
             "endTime":   round(w["endTime"]   + start_offset_seconds, 3),
-            "speaker":   w["speaker"],
+            "speaker":   0,   # chunked path — diarization not supported
         }
         for w in raw_words
     ]
@@ -449,11 +469,16 @@ def parse_transcript_response(
         if not result.alternatives:
             continue
         for word_info in result.alternatives[0].words:
+            # STT v2 uses speaker_label (string); convert to int for schema compatibility
+            try:
+                speaker = int(word_info.speaker_label) if word_info.speaker_label else 0
+            except (ValueError, TypeError):
+                speaker = 0
             word_timestamps.append({
                 "word": word_info.word,
                 "startTime": round(word_info.start_offset.total_seconds(), 3),
                 "endTime": round(word_info.end_offset.total_seconds(), 3),
-                "speaker": 1,
+                "speaker": speaker,   # 0 = unknown, 1+ = speaker N
             })
 
     return word_timestamps
@@ -526,7 +551,10 @@ async def transcribe(
     # Step 3 — STT (outside tempdir so local files are cleaned up)
     logger.info(f"[{job_id}] STT v2: Temp dir cleaned up, proceeding with GCS URI: {flac_gcs_uri}")
     client = get_speech_client()
-    config = build_recognition_config(sample_rate=sample_rate)
+    config = build_recognition_config(
+        sample_rate=sample_rate,
+        enable_diarization=(duration <= CHUNK_THRESHOLD_SECONDS),
+    )
     recognizer = f"projects/{PROJECT_ID}/locations/global/recognizers/_"
 
     request = cloud_speech.BatchRecognizeRequest(

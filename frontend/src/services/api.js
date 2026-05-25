@@ -187,3 +187,24 @@ export async function healthCheck() {
   const response = await api.get('/health')
   return response.data  // { status: "ok", service: "vidiq-api" }
 }
+
+
+/**
+ * Create a Razorpay Subscription for Pro plan upgrade.
+ * Returns { subscriptionId, keyId } — pass these to window.Razorpay options.
+ * Corresponds to POST /billing/create-checkout-session.
+ */
+export async function createCheckoutSession() {
+  const response = await api.post('/billing/create-checkout-session')
+  return response.data   // { subscriptionId, keyId }
+}
+
+/**
+ * Get the current user's billing plan.
+ * Corresponds to GET /billing/status.
+ * Polled by BillingSuccessPage until plan becomes 'pro'.
+ */
+export async function getBillingStatus() {
+  const response = await api.get('/billing/status')
+  return response.data   // { plan: 'free' | 'pro' }
+}

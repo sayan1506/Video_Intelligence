@@ -5,6 +5,8 @@ import UploadPage from './pages/UploadPage'
 import StatusPage from './pages/StatusPage'
 import ResultPage from './pages/ResultPage'
 import DashboardPage from './pages/DashboardPage'
+import PricingPage from './pages/PricingPage'
+import BillingSuccessPage from './pages/BillingSuccessPage'
 
 /**
  * PrivateRoute — redirects unauthenticated users to the landing page.
@@ -37,6 +39,8 @@ function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/billing/success" element={<BillingSuccessPage />} />
 
         {/* Protected */}
         <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />

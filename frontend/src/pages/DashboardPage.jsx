@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Zap, Plus, LogOut, RefreshCw, Film, AlertCircle } from 'lucide-react';
+import { Zap, Plus, LogOut, RefreshCw, Film, AlertCircle, Crown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getJobs } from '../services/api';
+import { getJobs, getBillingStatus } from '../services/api';
 import JobCard from '../components/JobCard';
 
 export default function DashboardPage() {
@@ -13,6 +13,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [plan, setPlan] = useState('free');
 
   const fetchJobs = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -34,6 +35,12 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  useEffect(() => {
+    getBillingStatus()
+      .then(({ plan }) => setPlan(plan))
+      .catch(() => {});
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -64,6 +71,18 @@ export default function DashboardPage() {
               </div>
             )}
             <span className="max-w-[160px] truncate">{user?.displayName ?? user?.email}</span>
+            {plan === 'pro' ? (
+              <span className="flex items-center gap-1 text-xs font-semibold text-violet-400 bg-violet-500/15 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                <Crown className="w-3 h-3" /> Pro
+              </span>
+            ) : (
+              <Link
+                to="/pricing"
+                className="text-xs font-semibold text-slate-400 hover:text-violet-400 bg-white/5 border border-dark-border hover:border-violet-500/30 px-2 py-0.5 rounded-full transition-colors"
+              >
+                Upgrade
+              </Link>
+            )}
           </div>
 
           <button
@@ -92,6 +111,12 @@ export default function DashboardPage() {
             <p className="text-slate-400 text-sm mt-1">
               {jobs.length > 0 ? `${jobs.length} video${jobs.length !== 1 ? 's' : ''}` : 'No videos yet'}
             </p>
+            {plan === 'free' && jobs.length > 0 && (
+              <p className="text-slate-500 text-xs mt-1">
+                {Math.max(0, 5 - jobs.length)} free video{Math.max(0, 5 - jobs.length) !== 1 ? 's' : ''} remaining this month ·{' '}
+                <Link to="/pricing" className="text-violet-400 hover:underline">Upgrade to Pro</Link>
+              </p>
+            )}
           </div>
 
           <button

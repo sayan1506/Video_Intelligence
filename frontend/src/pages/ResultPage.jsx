@@ -7,6 +7,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import SummaryCard from '../components/SummaryCard';
 import TranscriptPanel from '../components/TranscriptPanel';
 import ScenePanel from '../components/ScenePanel';
+import ProcessingStats from '../components/ProcessingStats';
 
 const SkeletonCard = ({ className }) => (
   <div className={`bg-white/5 border border-white/10 rounded-2xl animate-pulse ${className}`} />
@@ -153,7 +154,8 @@ export default function ResultPage() {
       </header>
 
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
-        <div className="max-w-[1600px] mx-auto h-full flex flex-col md:flex-row gap-4 md:gap-6">
+        <div className="max-w-[1600px] mx-auto h-full flex flex-col gap-4 md:gap-6">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6 flex-1 min-h-0">
           
           {/* Left Column */}
           <div className="w-full md:w-1/2 flex flex-col gap-4 md:gap-6 min-h-0">
@@ -204,6 +206,10 @@ export default function ResultPage() {
             </div>
           </div>
 
+        </div>
+
+          {/* Processing Stats — collapsible, bottom */}
+          <ProcessingStats result={result} />
         </div>
       </main>
     </div>

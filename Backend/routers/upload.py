@@ -79,6 +79,21 @@ async def request_upload_url(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid X-File-Header format.")
 
+    # PAY-1: enforce monthly video limit per plan
+    plan = firestore.get_user_plan(current_user["uid"])
+    job_count = firestore.get_user_job_count_this_month(current_user["uid"])
+    plan_limits = {"free": 5, "pro": 50}
+    limit = plan_limits.get(plan, 5)
+    if job_count >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"Monthly limit reached ({limit} videos on the {plan} plan). "
+                f"Upgrade to Pro for more."
+            ),
+        )
+    logger.info(f"[plan_check] user={current_user['uid']} plan={plan} jobs_this_month={job_count}/{limit}")
+
     job_id = str(uuid.uuid4())
     gcs_path = storage.build_gcs_path(job_id, filename)
 

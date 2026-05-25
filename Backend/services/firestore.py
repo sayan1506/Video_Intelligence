@@ -364,3 +364,94 @@ def get_transcript_chunks(job_id: str, chunk_count: int) -> list:
         f"{len(transcript)} words from {chunk_count} chunks"
     )
     return transcript
+
+
+# ---------------------------------------------------------------------------
+# PAY-1 — User and billing helpers
+# ---------------------------------------------------------------------------
+
+def get_or_create_user(user_id: str, email: str) -> dict:
+    """
+    Get the users/{userId} document, creating it with free plan defaults on first call.
+    Called by billing endpoints when a user interacts with the payment flow for the first time.
+    """
+    db = get_db()
+    ref = db.collection("users").document(user_id)
+    doc = ref.get()
+    if doc.exists:
+        return doc.to_dict()
+    now = datetime.now(timezone.utc)
+    user_data = {
+        "userId": user_id,
+        "email": email,
+        "razorpayCustomerId": "",
+        "razorpaySubscriptionId": "",
+        "plan": "free",
+        "planExpiresAt": None,
+        "monthlyJobCount": 0,
+        "monthlyJobResetAt": now,
+        "createdAt": now,
+    }
+    ref.set(user_data)
+    logger.info(f"[{user_id}] users doc created (plan: free)")
+    return user_data
+
+
+def update_user(user_id: str, fields: dict) -> None:
+    """
+    Partial update on users/{userId}.
+    Used by webhook handlers to set plan, razorpaySubscriptionId, planExpiresAt.
+    """
+    db = get_db()
+    fields["updatedAt"] = datetime.now(timezone.utc)
+    db.collection("users").document(user_id).update(fields)
+    logger.info(f"[{user_id}] update_user: {list(fields.keys())}")
+
+
+def get_user_by_razorpay_subscription(subscription_id: str) -> dict | None:
+    """
+    Look up a user document by razorpaySubscriptionId.
+    Used exclusively in webhook handlers where we only have the Razorpay subscription ID.
+    Returns None if no user is found.
+    """
+    db = get_db()
+    docs = list(
+        db.collection("users")
+        .where("razorpaySubscriptionId", "==", subscription_id)
+        .limit(1)
+        .stream()
+    )
+    return docs[0].to_dict() if docs else None
+
+
+def get_user_plan(user_id: str) -> str:
+    """
+    Return the user's current plan ('free' or 'pro').
+    Defaults to 'free' if no user doc exists — safe for legacy users pre-Phase 2.
+    """
+    db = get_db()
+    doc = db.collection("users").document(user_id).get()
+    if not doc.exists:
+        return "free"
+    return doc.to_dict().get("plan", "free")
+
+
+def get_user_job_count_this_month(user_id: str) -> int:
+    """
+    Count jobs created by this user in the current calendar month (UTC).
+    Used in upload.py to enforce monthly video limits per plan.
+    """
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    try:
+        docs = list(
+            db.collection("jobs")
+            .where("userId", "==", user_id)
+            .where("createdAt", ">=", start_of_month)
+            .stream()
+        )
+        return len(docs)
+    except Exception as e:
+        logger.error(f"[{user_id}] get_user_job_count_this_month failed: {e}")
+        return 0   # fail open — don't block upload on quota read failure
