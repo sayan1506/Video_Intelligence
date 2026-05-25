@@ -208,3 +208,23 @@ export async function getBillingStatus() {
   const response = await api.get('/billing/status')
   return response.data   // { plan: 'free' | 'pro' }
 }
+
+
+/**
+ * Fetch aggregated stats for the admin dashboard.
+ * Corresponds to GET /admin/stats.
+ * Will 403 if the current user is not the admin UID.
+ */
+export async function getAdminStats() {
+  const response = await api.get('/admin/stats')
+  return response.data
+}
+
+/**
+ * Fetch all recent jobs across all users for the admin jobs table.
+ * Corresponds to GET /admin/jobs?limit=50.
+ */
+export async function getAllJobs(limit = 50) {
+  const response = await api.get(`/admin/jobs?limit=${limit}`)
+  return response.data.jobs
+}

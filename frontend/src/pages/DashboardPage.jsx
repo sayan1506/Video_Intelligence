@@ -83,6 +83,14 @@ export default function DashboardPage() {
                 Upgrade
               </Link>
             )}
+            {user?.uid === import.meta.env.VITE_ADMIN_UID && (
+              <Link
+                to="/admin"
+                className="text-xs font-semibold text-slate-500 hover:text-violet-400 transition-colors"
+              >
+                Admin ↗
+              </Link>
+            )}
           </div>
 
           <button

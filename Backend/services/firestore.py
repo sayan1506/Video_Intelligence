@@ -455,3 +455,101 @@ def get_user_job_count_this_month(user_id: str) -> int:
     except Exception as e:
         logger.error(f"[{user_id}] get_user_job_count_this_month failed: {e}")
         return 0   # fail open — don't block upload on quota read failure
+
+
+# ---------------------------------------------------------------------------
+# A3 — Admin helpers
+# ---------------------------------------------------------------------------
+
+def get_admin_stats() -> dict:
+    """
+    Aggregate stats across ALL jobs in the collection.
+    Called only by the admin route — no userId filter.
+    Returns counts by status, total cost, average processing time,
+    and per-user breakdown (top 20 users by job count).
+    """
+    db = get_db()
+    all_jobs = list(db.collection("jobs").stream())
+
+    total = len(all_jobs)
+    by_status = {}
+    total_cost = 0.0
+    total_processing_time = 0
+    processing_time_count = 0
+    user_counts = {}
+
+    for doc in all_jobs:
+        data = doc.to_dict()
+        status = data.get("status", "unknown")
+        by_status[status] = by_status.get(status, 0) + 1
+
+        cost = data.get("totalEstimatedCostUsd", 0.0) or 0.0
+        total_cost += cost
+
+        pt = data.get("processingTime")
+        if pt:
+            total_processing_time += pt
+            processing_time_count += 1
+
+        uid = data.get("userId", "anonymous")
+        email = data.get("userEmail", uid)
+        if uid not in user_counts:
+            user_counts[uid] = {"email": email, "jobCount": 0, "totalCost": 0.0}
+        user_counts[uid]["jobCount"] += 1
+        user_counts[uid]["totalCost"] = round(user_counts[uid]["totalCost"] + cost, 4)
+
+    avg_processing_time = (
+        round(total_processing_time / processing_time_count, 1)
+        if processing_time_count > 0 else 0
+    )
+
+    top_users = sorted(
+        [{"userId": k, **v} for k, v in user_counts.items()],
+        key=lambda x: x["jobCount"],
+        reverse=True,
+    )[:20]
+
+    return {
+        "totalJobs": total,
+        "byStatus": by_status,
+        "totalEstimatedCostUsd": round(total_cost, 4),
+        "avgProcessingTimeSeconds": avg_processing_time,
+        "topUsers": top_users,
+    }
+
+
+def list_all_jobs(limit: int = 50) -> list:
+    """
+    List the most recent jobs across ALL users.
+    Used by the admin jobs table. Returns newest first.
+    No userId filter — admin sees everything.
+    """
+    db = get_db()
+    try:
+        docs = list(
+            db.collection("jobs")
+            .order_by("createdAt", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream()
+        )
+        jobs = []
+        for doc in docs:
+            data = doc.to_dict()
+            jobs.append({
+                "jobId": data.get("jobId"),
+                "filename": data.get("filename"),
+                "status": data.get("status"),
+                "userId": data.get("userId", "anonymous"),
+                "userEmail": data.get("userEmail", ""),
+                "processingTime": data.get("processingTime"),
+                "totalEstimatedCostUsd": data.get("totalEstimatedCostUsd"),
+                "sttEstimatedCostUsd": data.get("sttEstimatedCostUsd"),
+                "viEstimatedCostUsd": data.get("viEstimatedCostUsd"),
+                "geminiEstimatedCostUsd": data.get("geminiEstimatedCostUsd"),
+                "createdAt": data.get("createdAt").isoformat() if data.get("createdAt") else None,
+                "errorMessage": data.get("errorMessage"),
+            })
+        return jobs
+    except Exception as e:
+        logger.error(f"list_all_jobs failed: {e}")
+        return []

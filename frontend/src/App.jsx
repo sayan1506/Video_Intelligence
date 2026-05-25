@@ -7,6 +7,7 @@ import ResultPage from './pages/ResultPage'
 import DashboardPage from './pages/DashboardPage'
 import PricingPage from './pages/PricingPage'
 import BillingSuccessPage from './pages/BillingSuccessPage'
+import AdminDashboard from './pages/AdminDashboard'
 
 /**
  * PrivateRoute — redirects unauthenticated users to the landing page.
@@ -47,6 +48,9 @@ function App() {
         <Route path="/upload"    element={<PrivateRoute><UploadPage /></PrivateRoute>} />
         <Route path="/status/:jobId" element={<PrivateRoute><StatusPage /></PrivateRoute>} />
         <Route path="/result/:jobId" element={<PrivateRoute><ResultPage /></PrivateRoute>} />
+
+        {/* Admin — UID-gated on the client, 403-gated on the server */}
+        <Route path="/admin" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
       </Routes>
     </BrowserRouter>
   )

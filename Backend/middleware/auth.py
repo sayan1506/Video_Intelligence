@@ -103,3 +103,17 @@ async def get_current_user(
         "email": decoded.get("email", ""),
         "name": decoded.get("name", ""),
     }
+
+
+async def get_current_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """
+    Admin-only dependency. Raises 403 if the authenticated user is not the admin UID.
+    Stack: get_current_admin → get_current_user → Firebase token verification.
+    The admin UID is read from ADMIN_UID env var at call time (not module load).
+    """
+    admin_uid = os.getenv("ADMIN_UID", "")
+    if not admin_uid:
+        raise HTTPException(status_code=500, detail="Admin not configured.")
+    if current_user["uid"] != admin_uid:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    return current_user
