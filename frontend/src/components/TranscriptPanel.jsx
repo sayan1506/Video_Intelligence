@@ -6,7 +6,7 @@ const isActiveWord = (wordObj, currentTime) => {
   return currentTime >= wordObj.startTime && currentTime <= wordObj.endTime;
 };
 
-export default function TranscriptPanel({ transcript, currentTime, seekTo, filenameBase = 'transcript' }) {
+export default function TranscriptPanel({ transcript, currentTime, seekTo, filenameBase = 'transcript', hideExports = false }) {
   const [query, setQuery] = useState('');
   const activeWordRef = useRef(null);
   const scrollContainerRef = useRef(null);
@@ -70,7 +70,7 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo, filen
         <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
           {transcript?.length || 0} words
         </div>
-        {transcript && transcript.length > 0 && (
+        {!hideExports && transcript && transcript.length > 0 && (
           <div className="flex items-center gap-1">
             <button
               onClick={() => exportSrt(transcript, filenameBase)}

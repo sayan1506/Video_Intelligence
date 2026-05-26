@@ -86,6 +86,8 @@ def create_job(
         # V2.0 — ownership fields
         "userId": user_id,
         "userEmail": user_email,
+        # Public share links — default to private
+        "isPublic": False,
     }
 
     db.collection("jobs").document(job_id).set(job_data)
@@ -136,6 +138,15 @@ def update_upload_progress(job_id: str, upload_progress: int) -> None:
 
 
 
+
+
+def set_job_public(job_id: str, is_public: bool) -> None:
+    """Update isPublic field and updatedAt timestamp on a job document."""
+    db = get_db()
+    db.collection("jobs").document(job_id).update({
+        "isPublic": is_public,
+        "updatedAt": datetime.now(timezone.utc),
+    })
 
 
 def mark_processing_started(job_id: str) -> None:

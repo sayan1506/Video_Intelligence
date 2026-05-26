@@ -13,7 +13,7 @@ const sentimentConfig = {
   negative: { label: 'Negative', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
 };
 
-export default function SummaryCard({ summary, sentiment, chapters, highlights, actionItems, seekTo, filenameBase = 'summary' }) {
+export default function SummaryCard({ summary, sentiment, chapters, highlights, actionItems, seekTo, filenameBase = 'summary', hideExports = false }) {
   const badge = sentimentConfig[sentiment ?? 'neutral'];
 
   return (
@@ -24,7 +24,7 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
         <span className={`px-3 py-1 rounded-full text-xs font-medium border ${badge.color}`}>
           Sentiment: {badge.label}
         </span>
-        {summary && summary.length > 0 && (
+        {!hideExports && summary && summary.length > 0 && (
           <button
             title="Export PDF summary"
             onClick={() => exportPdf({ summary, chapters, highlights, actionItems, sentiment }, filenameBase)}

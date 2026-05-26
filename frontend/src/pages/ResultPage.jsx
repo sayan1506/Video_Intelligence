@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Zap, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { getResult, getVideoUrl } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 import VideoPlayer from '../components/VideoPlayer';
 import SummaryCard from '../components/SummaryCard';
@@ -9,6 +10,8 @@ import TranscriptPanel from '../components/TranscriptPanel';
 import ScenePanel from '../components/ScenePanel';
 import ProcessingStats from '../components/ProcessingStats';
 import QAPanel from '../components/QAPanel';
+import ShareToggle from '../components/ShareToggle';
+import CopyLinkButton from '../components/CopyLinkButton';
 
 const SkeletonCard = ({ className }) => (
   <div className={`bg-white/5 border border-white/10 rounded-2xl animate-pulse ${className}`} />
@@ -17,12 +20,15 @@ const SkeletonCard = ({ className }) => (
 export default function ResultPage() {
   const { jobId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const [result, setResult] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isPublic, setIsPublic] = useState(false);
+  const [shareUrl, setShareUrl] = useState(null);
 
   const videoPlayerRef = useRef(null);
 
@@ -57,6 +63,8 @@ export default function ResultPage() {
         ]);
         setResult(data);
         setVideoUrl(freshVideoUrl);
+        setIsPublic(data.isPublic ?? false);
+        setShareUrl(data.shareUrl ?? null);
       } catch (err) {
         console.error(err);
         setError("Failed to load result.");
@@ -66,6 +74,16 @@ export default function ResultPage() {
     };
     
     fetchResult();
+  }, [jobId]);
+
+  const handleShareToggle = useCallback((newValue) => {
+    setIsPublic(newValue);
+    // When toggled to public, construct the share URL; when private, clear it
+    if (newValue) {
+      setShareUrl(`${window.location.origin}/share/${jobId}`);
+    } else {
+      setShareUrl(null);
+    }
   }, [jobId]);
 
   if (isLoading) {
@@ -149,9 +167,17 @@ export default function ResultPage() {
             )}
           </div>
         </div>
-        <Link to="/upload" className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" /> New Upload
-        </Link>
+        <div className="flex items-center gap-4">
+          {user && result?.status === 'completed' && (
+            <div className="flex items-center gap-3">
+              <ShareToggle jobId={jobId} isPublic={isPublic} onToggle={handleShareToggle} />
+              <CopyLinkButton shareUrl={shareUrl} isPublic={isPublic} />
+            </div>
+          )}
+          <Link to="/upload" className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+            <ArrowLeft className="w-4 h-4" /> New Upload
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">

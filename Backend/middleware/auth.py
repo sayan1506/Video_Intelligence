@@ -105,6 +105,45 @@ async def get_current_user(
     }
 
 
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> dict | None:
+    """
+    FastAPI dependency — returns decoded user dict if valid Bearer token present,
+    None otherwise. Never raises HTTP errors — silent fallback to None.
+
+    Usage:
+        @router.get("/public-or-private")
+        async def endpoint(user = Depends(get_optional_user)):
+            if user is None:
+                # unauthenticated access
+            else:
+                # authenticated access
+
+    Returns:
+        Decoded token dict with uid, email, name — or None.
+    """
+    if credentials is None:
+        return None
+
+    token = credentials.credentials
+    if not token:
+        return None
+
+    try:
+        _get_firebase_app()  # ensure initialised
+        decoded = firebase_auth.verify_id_token(token)
+    except Exception:
+        # Any verification failure (expired, invalid, malformed) → None
+        return None
+
+    return {
+        "uid": decoded["uid"],
+        "email": decoded.get("email", ""),
+        "name": decoded.get("name", ""),
+    }
+
+
 async def get_current_admin(current_user: dict = Depends(get_current_user)) -> dict:
     """
     Admin-only dependency. Raises 403 if the authenticated user is not the admin UID.

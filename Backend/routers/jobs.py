@@ -1,11 +1,15 @@
+import os
 import logging
 from fastapi import APIRouter, HTTPException, Depends
 from google.api_core.exceptions import GoogleAPICallError, FailedPrecondition
 from services import firestore
 from middleware.auth import get_current_user
+from models.schemas import ShareToggleRequest, ShareToggleResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "https://video-intelligence-v1.web.app")
 
 
 @router.get("/jobs")
@@ -45,3 +49,40 @@ async def list_jobs(
 
     logger.info(f"list_jobs — returned {len(jobs)} jobs for user {current_user['uid']}")
     return {"jobs": jobs}
+
+
+@router.patch("/jobs/{job_id}/share")
+async def toggle_job_share(
+    job_id: str,
+    body: ShareToggleRequest,
+    current_user: dict = Depends(get_current_user),
+) -> ShareToggleResponse:
+    """
+    Toggle public sharing for a completed job.
+
+    Only the job owner can toggle visibility. The job must have status "completed".
+
+    Returns the new share state and the public share URL (when isPublic=true).
+    """
+    # Fetch job and verify ownership
+    job = firestore.get_job(job_id)
+    if job is None or job.get("userId") != current_user["uid"]:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
+
+    # Only completed jobs can be shared
+    if job.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Only completed jobs can be shared.")
+
+    # Update the isPublic field in Firestore
+    firestore.set_job_public(job_id, body.isPublic)
+
+    # Construct share URL
+    share_url = f"{FRONTEND_BASE_URL}/share/{job_id}" if body.isPublic else None
+
+    logger.info(f"toggle_job_share — job {job_id} isPublic={body.isPublic} by user {current_user['uid']}")
+
+    return ShareToggleResponse(
+        jobId=job_id,
+        isPublic=body.isPublic,
+        shareUrl=share_url,
+    )

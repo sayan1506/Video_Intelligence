@@ -170,6 +170,19 @@ export async function getJobs(limit = 20) {
 }
 
 /**
+ * Toggle the public share state of a job.
+ * Corresponds to PATCH /jobs/{jobId}/share on the backend.
+ *
+ * @param {string} jobId - The job to toggle sharing for
+ * @param {boolean} isPublic - Whether the job should be publicly accessible
+ * @returns {Promise<{jobId: string, isPublic: boolean, shareUrl: string|null}>}
+ */
+export async function toggleJobShare(jobId, isPublic) {
+  const response = await api.patch(`/jobs/${jobId}/share`, { isPublic })
+  return response.data  // { jobId, isPublic, shareUrl }
+}
+
+/**
  * Fetch a fresh signed thumbnail URL for a job.
  * Corresponds to GET /thumbnail-url/{jobId} on the backend.
  *

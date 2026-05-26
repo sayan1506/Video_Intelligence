@@ -3,6 +3,16 @@ from typing import List, Optional
 from datetime import datetime
 
 
+class ShareToggleRequest(BaseModel):
+    isPublic: bool
+
+
+class ShareToggleResponse(BaseModel):
+    jobId: str
+    isPublic: bool
+    shareUrl: Optional[str] = None
+
+
 class UploadResponse(BaseModel):
     jobId: str
     status: str
@@ -73,6 +83,10 @@ class ResultResponse(BaseModel):
     geminiOutputTokens: Optional[int] = None
     geminiEstimatedCostUsd: Optional[float] = None
     totalEstimatedCostUsd: Optional[float] = None
+
+    # Public share fields
+    isPublic: bool = False
+    shareUrl: Optional[str] = None
 
 
 class JobMessage(BaseModel):

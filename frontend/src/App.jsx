@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage'
 import PricingPage from './pages/PricingPage'
 import BillingSuccessPage from './pages/BillingSuccessPage'
 import AdminDashboard from './pages/AdminDashboard'
+import SharePage from './pages/SharePage'
 
 /**
  * PrivateRoute — redirects unauthenticated users to the landing page.
@@ -42,6 +43,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/billing/success" element={<BillingSuccessPage />} />
+        <Route path="/share/:jobId" element={<SharePage />} />
 
         {/* Protected */}
         <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
