@@ -174,6 +174,9 @@ async def get_result(job_id: str, current_user: dict | None = Depends(get_option
         geminiEstimatedCostUsd=job.get("geminiEstimatedCostUsd"),
         totalEstimatedCostUsd=job.get("totalEstimatedCostUsd"),
 
+        # Job ownership
+        userId=job.get("userId"),
+
         # Public share fields
         isPublic=is_public,
         shareUrl=f"{FRONTEND_BASE_URL}/share/{job_id}" if is_public else None,
@@ -206,12 +209,16 @@ async def get_video_url(job_id: str, current_user: dict | None = Depends(get_opt
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
 
-    # Access control logic
+    # Access control logic (same as get_result)
     job_owner = job.get("userId", "")
     is_public = job.get("isPublic", False)
     job_status = job.get("status", "")
 
-    is_owner = current_user is not None and job_owner and job_owner == current_user["uid"]
+    # Legacy jobs (no userId field) are accessible to any authenticated user
+    is_owner = (
+        current_user is not None
+        and (not job_owner or job_owner == current_user["uid"])
+    )
 
     if is_owner:
         # Owner can always access their own jobs

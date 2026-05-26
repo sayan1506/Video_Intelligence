@@ -168,7 +168,7 @@ export default function ResultPage() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {user && result?.status === 'completed' && (
+          {user && result?.status === 'completed' && user.uid === result?.userId && (
             <div className="flex items-center gap-3">
               <ShareToggle jobId={jobId} isPublic={isPublic} onToggle={handleShareToggle} />
               <CopyLinkButton shareUrl={shareUrl} isPublic={isPublic} />

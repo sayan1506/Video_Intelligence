@@ -74,7 +74,11 @@ async def toggle_job_share(
         raise HTTPException(status_code=400, detail="Only completed jobs can be shared.")
 
     # Update the isPublic field in Firestore
-    firestore.set_job_public(job_id, body.isPublic)
+    try:
+        firestore.set_job_public(job_id, body.isPublic)
+    except Exception as e:
+        logger.error(f"toggle_job_share — Firestore set_job_public failed for job {job_id}: {e}")
+        raise HTTPException(status_code=503, detail="Database service unavailable.")
 
     # Construct share URL
     share_url = f"{FRONTEND_BASE_URL}/share/{job_id}" if body.isPublic else None

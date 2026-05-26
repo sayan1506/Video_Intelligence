@@ -84,6 +84,9 @@ class ResultResponse(BaseModel):
     geminiEstimatedCostUsd: Optional[float] = None
     totalEstimatedCostUsd: Optional[float] = None
 
+    # Job ownership (for frontend to determine if current user is owner)
+    userId: Optional[str] = None
+
     # Public share fields
     isPublic: bool = False
     shareUrl: Optional[str] = None

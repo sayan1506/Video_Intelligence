@@ -14,8 +14,21 @@ export default function CopyLinkButton({ shareUrl, isPublic }) {
       setError(false);
       setTimeout(() => setCopied(false), 3000);
     } catch {
-      setError(true);
-      setCopied(false);
+      // Fallback for browsers that block clipboard on non-HTTPS
+      try {
+        const input = document.createElement('input');
+        input.value = shareUrl;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        setCopied(true);
+        setError(false);
+        setTimeout(() => setCopied(false), 3000);
+      } catch {
+        setError(true);
+        setCopied(false);
+      }
     }
   };
 
