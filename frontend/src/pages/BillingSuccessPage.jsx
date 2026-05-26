@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { getBillingStatus } from '../services/api';
 
-const POLL_INTERVAL_MS = 2000;
-const MAX_POLLS = 20;
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLLS = 100;
 
 export default function BillingSuccessPage() {
   const navigate = useNavigate();

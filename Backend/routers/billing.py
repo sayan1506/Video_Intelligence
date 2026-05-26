@@ -104,6 +104,8 @@ async def razorpay_webhook(request: Request):
 
     if event_type == "subscription.activated":
         _handle_subscription_activated(event["payload"]["subscription"]["entity"])
+    elif event_type == "subscription.charged":
+        _handle_subscription_activated(event["payload"]["subscription"]["entity"])
     elif event_type == "subscription.cancelled":
         _handle_subscription_cancelled(event["payload"]["subscription"]["entity"])
     elif event_type == "payment.failed":
@@ -126,15 +128,36 @@ async def billing_status(current_user: dict = Depends(get_current_user)):
 def _handle_subscription_activated(subscription: dict) -> None:
     subscription_id = subscription["id"]
     period_end = subscription.get("current_end")
+
     user = firestore.get_user_by_razorpay_subscription(subscription_id)
     if user:
         firestore.update_user(user["userId"], {
             "plan": "pro",
             "planExpiresAt": period_end,
         })
-        logger.info(f"[{user['userId']}] Upgraded to Pro (period end: {period_end})")
+        logger.info(f"[{user['userId']}] Upgraded to Pro via subscription lookup (period end: {period_end})")
+        return
+
+    # Primary lookup failed — use notes.firebaseUid as fallback.
+    # This uid is written into the subscription during create_checkout_session.
+    notes = subscription.get("notes", {})
+    firebase_uid = notes.get("firebaseUid")
+    if firebase_uid:
+        logger.warning(
+            f"Webhook: primary lookup failed for sub {subscription_id} — "
+            f"falling back to notes.firebaseUid: {firebase_uid}"
+        )
+        firestore.update_user(firebase_uid, {
+            "plan": "pro",
+            "planExpiresAt": period_end,
+            "razorpaySubscriptionId": subscription_id,
+        })
+        logger.info(f"[{firebase_uid}] Upgraded to Pro via notes fallback (period end: {period_end})")
     else:
-        logger.warning(f"Webhook: no user found for Razorpay subscription {subscription_id}")
+        logger.error(
+            f"Webhook: CANNOT find user for subscription {subscription_id} — "
+            f"no Firestore match and no notes.firebaseUid. Manual intervention required."
+        )
 
 
 def _handle_subscription_cancelled(subscription: dict) -> None:
