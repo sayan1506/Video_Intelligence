@@ -760,10 +760,15 @@ describe('downloadTextFile - download mechanism', () => {
   });
 
   it('calls URL.revokeObjectURL after the click to prevent memory leaks', () => {
+    vi.useFakeTimers();
     downloadTextFile('content', 'file.srt', 'text/plain;charset=utf-8');
 
+    // revokeObjectURL is deferred via setTimeout to avoid race condition
+    expect(revokeObjectURLMock).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
     expect(revokeObjectURLMock).toHaveBeenCalledTimes(1);
     expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:http://localhost/fake-url');
+    vi.useRealTimers();
   });
 
   it('exportSrt triggers download with .srt extension and text/plain MIME type', () => {
