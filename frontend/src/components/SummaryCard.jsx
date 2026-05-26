@@ -1,4 +1,5 @@
-import { BookOpen, Star, CheckSquare } from 'lucide-react';
+import { BookOpen, Star, CheckSquare, FileDown } from 'lucide-react';
+import { exportPdf } from '../lib/exporters.js';
 
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
@@ -12,17 +13,27 @@ const sentimentConfig = {
   negative: { label: 'Negative', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
 };
 
-export default function SummaryCard({ summary, sentiment, chapters, highlights, actionItems, seekTo }) {
+export default function SummaryCard({ summary, sentiment, chapters, highlights, actionItems, seekTo, filenameBase }) {
   const badge = sentimentConfig[sentiment ?? 'neutral'];
 
   return (
     <div className="bg-dark-surface border border-dark-border rounded-2xl p-6 flex flex-col gap-6">
       
       {/* Sentiment Badge */}
-      <div className="flex items-start">
+      <div className="flex items-center justify-between">
         <span className={`px-3 py-1 rounded-full text-xs font-medium border ${badge.color}`}>
           Sentiment: {badge.label}
         </span>
+        {summary && summary.length > 0 && (
+          <button
+            title="Export PDF summary"
+            onClick={() => exportPdf({ summary, chapters, highlights, actionItems }, filenameBase)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-dark-border hover:border-slate-500 transition-all"
+          >
+            <FileDown className="w-4 h-4" />
+            Export PDF
+          </button>
+        )}
       </div>
 
       {/* Summary Paragraph */}

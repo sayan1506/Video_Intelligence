@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, FileX } from 'lucide-react';
+import { Search, FileX, Download } from 'lucide-react';
+import { exportSrt, exportVtt } from '../lib/exporters.js';
 
 const isActiveWord = (wordObj, currentTime) => {
   return currentTime >= wordObj.startTime && currentTime <= wordObj.endTime;
 };
 
-export default function TranscriptPanel({ transcript, currentTime, seekTo }) {
+export default function TranscriptPanel({ transcript, currentTime, seekTo, filenameBase }) {
   const [query, setQuery] = useState('');
   const activeWordRef = useRef(null);
   const scrollContainerRef = useRef(null);
@@ -69,6 +70,26 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo }) {
         <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
           {transcript?.length || 0} words
         </div>
+        {transcript && transcript.length > 0 && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => exportSrt(transcript, filenameBase)}
+              title="Download SRT subtitles"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-400 hover:text-white bg-black/30 hover:bg-white/10 border border-white/10 rounded-md transition-colors"
+            >
+              <Download className="w-3 h-3" />
+              SRT
+            </button>
+            <button
+              onClick={() => exportVtt(transcript, filenameBase)}
+              title="Download VTT subtitles"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-400 hover:text-white bg-black/30 hover:bg-white/10 border border-white/10 rounded-md transition-colors"
+            >
+              <Download className="w-3 h-3" />
+              VTT
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Transcript Text Flow */}

@@ -179,6 +179,7 @@ export default function ResultPage() {
                   highlights={result?.highlights ?? []}
                   actionItems={result?.actionItems ?? []}
                   seekTo={seekTo}
+                  filenameBase={jobId}
                 />
                 <QAPanel jobId={jobId} onSeek={seekTo} />
               </div>
@@ -193,6 +194,7 @@ export default function ResultPage() {
                   transcript={result?.transcript ?? []}
                   currentTime={currentTime} 
                   seekTo={seekTo}
+                  filenameBase={jobId}
                 />
               </div>
             </div>
