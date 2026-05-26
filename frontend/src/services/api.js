@@ -228,3 +228,17 @@ export async function getAllJobs(limit = 50) {
   const response = await api.get(`/admin/jobs?limit=${limit}`)
   return response.data.jobs
 }
+
+/**
+ * Ask a natural-language question about a video's transcript (RAG Q&A).
+ * Corresponds to POST /qa/{jobId} on the backend.
+ * Requires Pro plan — returns 402 for free-tier users.
+ *
+ * @param {string} jobId - The job to query against
+ * @param {string} question - Natural-language question (max 1000 chars)
+ * @returns {Promise<{answer: string, sources: Array<{chunkIndex: number, startTime: number, endTime: number, snippet: string}>}>}
+ */
+export async function askQuestion(jobId, question) {
+  const response = await api.post(`/qa/${jobId}`, { question })
+  return response.data  // { answer, sources: [{chunkIndex, startTime, endTime, snippet}] }
+}

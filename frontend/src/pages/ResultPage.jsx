@@ -8,6 +8,7 @@ import SummaryCard from '../components/SummaryCard';
 import TranscriptPanel from '../components/TranscriptPanel';
 import ScenePanel from '../components/ScenePanel';
 import ProcessingStats from '../components/ProcessingStats';
+import QAPanel from '../components/QAPanel';
 
 const SkeletonCard = ({ className }) => (
   <div className={`bg-white/5 border border-white/10 rounded-2xl animate-pulse ${className}`} />
@@ -179,6 +180,7 @@ export default function ResultPage() {
                   actionItems={result?.actionItems ?? []}
                   seekTo={seekTo}
                 />
+                <QAPanel jobId={jobId} onSeek={seekTo} />
               </div>
             </div>
           </div>

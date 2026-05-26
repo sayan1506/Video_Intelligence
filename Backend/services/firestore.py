@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 from google.cloud import firestore
+from google.cloud.firestore_v1.vector import Vector
+from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.api_core.exceptions import FailedPrecondition
 
 logger = logging.getLogger(__name__)
@@ -553,3 +555,74 @@ def list_all_jobs(limit: int = 50) -> list:
     except Exception as e:
         logger.error(f"list_all_jobs failed: {e}")
         return []
+
+
+# ---------------------------------------------------------------------------
+# QA — Vector search helpers
+# ---------------------------------------------------------------------------
+
+def get_transcript_chunk_count(job_id: str) -> int:
+    """
+    Return the number of transcript chunks for a job.
+
+    Reads the transcriptChunkCount field from the results/{jobId} document.
+    Returns 0 if the document doesn't exist or the field is missing.
+
+    Args:
+        job_id: The job identifier.
+
+    Returns:
+        Integer count of transcript chunks (0 if unavailable).
+    """
+    db = get_db()
+    doc = db.collection("results").document(job_id).get()
+    if not doc.exists:
+        return 0
+    return doc.to_dict().get("transcriptChunkCount", 0)
+
+
+def search_transcript_chunks(job_id: str, query_vector: list, top_k: int = 4) -> list:
+    """
+    Perform vector similarity search over transcript chunks.
+
+    Uses Firestore find_nearest() with COSINE distance to find the top-K
+    most semantically similar transcript chunks to the query embedding.
+
+    Args:
+        job_id:       The job identifier.
+        query_vector: 768-dimensional embedding vector for the query.
+        top_k:        Number of nearest chunks to return (default 4).
+
+    Returns:
+        List of dicts with keys: chunkIndex, startTime, endTime, text.
+        Text is assembled by joining the words array from each chunk.
+    """
+    db = get_db()
+    collection = (
+        db.collection("results")
+        .document(job_id)
+        .collection("transcript_chunks")
+    )
+
+    results = collection.find_nearest(
+        vector_field="embedding",
+        query_vector=Vector(query_vector),
+        distance_measure=DistanceMeasure.COSINE,
+        limit=top_k,
+    )
+
+    chunks = []
+    for doc in results.stream():
+        data = doc.to_dict()
+        words = data.get("words", [])
+        text = " ".join(w["word"] for w in words)
+        start_time = words[0]["startTime"] if words else 0.0
+        end_time = words[-1]["endTime"] if words else 0.0
+        chunks.append({
+            "chunkIndex": data.get("chunkIndex", 0),
+            "startTime": start_time,
+            "endTime": end_time,
+            "text": text,
+        })
+
+    return chunks

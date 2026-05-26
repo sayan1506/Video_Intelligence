@@ -5,6 +5,8 @@
 # Kiro
 .kiro/
 
+.hypothesis/
+
 # OS
 .DS_Store
 Thumbs.db

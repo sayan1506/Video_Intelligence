@@ -30,6 +30,7 @@ from models.schemas import JobMessage
 from pipeline.speech_to_text import transcribe, download_from_gcs
 from pipeline.video_intelligence import analyse_video
 from pipeline.gemini import generate_summary   # stub today, real in Week 4
+from pipeline.embeddings import embed_transcript_chunks
 from services import firestore
 
 logger = logging.getLogger(__name__)
@@ -223,6 +224,16 @@ async def run_pipeline(job_message: JobMessage) -> bool:
         firestore.write_summary(job_id=job_id, summary_data=summary_data)
     except Exception as e:
         logger.error(f"[{job_id}] Firestore write_summary failed (non-fatal): {e}")
+
+    # -------------------------------------------------------------------
+    # Phase 4 — Embed transcript chunks for RAG (non-fatal)
+    # -------------------------------------------------------------------
+    try:
+        chunk_count = firestore.get_transcript_chunk_count(job_id)
+        if chunk_count > 0:
+            await embed_transcript_chunks(job_id, chunk_count)
+    except Exception as e:
+        logger.error(f"[{job_id}] Embedding pipeline failed (non-fatal): {e}")
 
     elapsed = int(time.time() - start_time)
     firestore.mark_processing_completed(job_id, processing_time_seconds=elapsed)

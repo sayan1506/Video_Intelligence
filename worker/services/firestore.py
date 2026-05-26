@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 from google.cloud import firestore
+from google.cloud.firestore_v1.vector import Vector
 from google.api_core.exceptions import FailedPrecondition
 
 logger = logging.getLogger(__name__)
@@ -320,3 +321,77 @@ def write_gemini_usage(
         "updatedAt": datetime.now(timezone.utc),
     })
     logger.info(f"[{job_id}] Gemini usage written — input: {input_tokens}, output: {output_tokens}, cost: ${estimated_cost_usd}")
+
+
+# ── Embedding helpers ─────────────────────────────────────────────────────────
+
+def get_transcript_chunk(job_id: str, chunk_index: int) -> dict | None:
+    """
+    Fetch a single transcript chunk document from Firestore.
+
+    Reads from results/{jobId}/transcript_chunks/{chunk_index}.
+
+    Args:
+        job_id:      The job whose transcript chunk to fetch.
+        chunk_index: Zero-based index of the chunk.
+
+    Returns:
+        The chunk document as a dict, or None if it doesn't exist.
+    """
+    db = get_db()
+    doc = (
+        db.collection("results")
+        .document(job_id)
+        .collection("transcript_chunks")
+        .document(str(chunk_index))
+        .get()
+    )
+    if doc.exists:
+        logger.debug(f"[{job_id}] Fetched transcript chunk {chunk_index}")
+        return doc.to_dict()
+
+    logger.warning(f"[{job_id}] Transcript chunk {chunk_index} not found")
+    return None
+
+
+def write_chunk_embedding(job_id: str, chunk_index: int, embedding: list[float]) -> None:
+    """
+    Write an embedding vector to an existing transcript chunk document.
+
+    Uses set() with merge=True so that existing fields (words, chunkIndex,
+    wordCount) are preserved — only the embedding field is added/updated.
+
+    The embedding is stored as a Firestore Vector type (not a plain list)
+    so that find_nearest() can index and query it.
+
+    Args:
+        job_id:      The job whose chunk to update.
+        chunk_index: Zero-based index of the chunk.
+        embedding:   768-dimensional float vector from text-embedding-004.
+    """
+    db = get_db()
+    (
+        db.collection("results")
+        .document(job_id)
+        .collection("transcript_chunks")
+        .document(str(chunk_index))
+        .set({"embedding": Vector(embedding)}, merge=True)
+    )
+    logger.debug(f"[{job_id}] Embedding written for chunk {chunk_index}")
+
+
+def get_transcript_chunk_count(job_id: str) -> int:
+    """
+    Return the number of transcript chunks stored for a job.
+
+    Reads the transcriptChunkCount field from the results/{jobId} document.
+    Returns 0 if the document doesn't exist or the field is missing.
+
+    Args:
+        job_id: The job to query.
+    """
+    db = get_db()
+    doc = db.collection("results").document(job_id).get()
+    if not doc.exists:
+        return 0
+    return doc.to_dict().get("transcriptChunkCount", 0)
