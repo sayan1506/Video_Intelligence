@@ -106,7 +106,7 @@ export default function UploadPage() {
     } catch (err) {
       console.error(err);
       if (err.response?.status === 429) {
-        setError(err.response.data?.detail || 'Monthly video limit reached. Upgrade to Pro for more.');
+        setError(err.response.data?.detail || 'Monthly video limit reached. Quota resets on the 1st of next month. Upgrade to Pro for more.');
         setUploadState('idle');
       } else if (currentStep === 'prepare') {
         setError("Failed to prepare upload. Please try again.");

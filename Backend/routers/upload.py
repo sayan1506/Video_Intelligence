@@ -18,6 +18,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 MAX_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", 500))
+FREE_PLAN_LIMIT = int(os.getenv("FREE_PLAN_MONTHLY_LIMIT", 5))
+PRO_PLAN_LIMIT = int(os.getenv("PRO_PLAN_MONTHLY_LIMIT", 50))
 ALLOWED_TYPES = os.getenv(
     "ALLOWED_VIDEO_TYPES",
     "video/mp4,video/quicktime,video/avi,video/x-msvideo,video/x-matroska,video/matroska"
@@ -82,17 +84,30 @@ async def request_upload_url(
     # PAY-1: enforce monthly video limit per plan
     plan = firestore.get_user_plan(current_user["uid"])
     job_count = firestore.get_user_job_count_this_month(current_user["uid"])
-    plan_limits = {"free": 5, "pro": 50}
-    limit = plan_limits.get(plan, 5)
+    plan_limits = {"free": FREE_PLAN_LIMIT, "pro": PRO_PLAN_LIMIT}
+    limit = plan_limits.get(plan, FREE_PLAN_LIMIT)
     if job_count >= limit:
+        # Calculate next reset date (1st of next month, UTC)
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        if now_utc.month == 12:
+            reset_date = now_utc.replace(year=now_utc.year + 1, month=1, day=1,
+                                         hour=0, minute=0, second=0, microsecond=0)
+        else:
+            reset_date = now_utc.replace(month=now_utc.month + 1, day=1,
+                                         hour=0, minute=0, second=0, microsecond=0)
+        reset_str = reset_date.strftime("%B 1")   # e.g. "June 1"
         raise HTTPException(
             status_code=429,
             detail=(
                 f"Monthly limit reached ({limit} videos on the {plan} plan). "
+                f"Quota resets on {reset_str}. "
                 f"Upgrade to Pro for more."
             ),
         )
-    logger.info(f"[plan_check] user={current_user['uid']} plan={plan} jobs_this_month={job_count}/{limit}")
+    logger.info(
+        f"[plan_check] user={current_user['uid']} plan={plan} "
+        f"jobs_this_month={job_count}/{limit}"
+    )
 
     job_id = str(uuid.uuid4())
     gcs_path = storage.build_gcs_path(job_id, filename)

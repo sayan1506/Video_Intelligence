@@ -470,6 +470,56 @@ def get_user_job_count_this_month(user_id: str) -> int:
         return 0   # fail open — don't block upload on quota read failure
 
 
+def get_quota_status(user_id: str) -> dict:
+    """
+    Return a single dict with everything the frontend needs to render quota UI:
+      - plan:          'free' or 'pro'
+      - jobsThisMonth: count of jobs created this calendar month (UTC)
+      - monthlyLimit:  the plan's job limit for this month
+      - resetDate:     ISO-8601 UTC datetime string for the 1st of next month
+
+    Called by GET /quota. Combines get_user_plan() and
+    get_user_job_count_this_month() in a single service call.
+
+    Returns a safe default (free plan, 0 used) on any Firestore error.
+    """
+    db = get_db()
+
+    # Read plan from users doc
+    try:
+        user_doc = db.collection("users").document(user_id).get()
+        plan = user_doc.to_dict().get("plan", "free") if user_doc.exists else "free"
+    except Exception as e:
+        logger.error(f"[{user_id}] get_quota_status: users read failed: {e}")
+        plan = "free"
+
+    # Read this month's job count
+    jobs_this_month = get_user_job_count_this_month(user_id)
+
+    # Resolve limit from env vars (same source as upload.py)
+    import os as _os
+    free_limit = int(_os.getenv("FREE_PLAN_MONTHLY_LIMIT", 5))
+    pro_limit = int(_os.getenv("PRO_PLAN_MONTHLY_LIMIT", 50))
+    plan_limits = {"free": free_limit, "pro": pro_limit}
+    monthly_limit = plan_limits.get(plan, free_limit)
+
+    # Compute reset date (1st of next month, UTC)
+    now_utc = datetime.now(timezone.utc)
+    if now_utc.month == 12:
+        reset_dt = now_utc.replace(year=now_utc.year + 1, month=1, day=1,
+                                   hour=0, minute=0, second=0, microsecond=0)
+    else:
+        reset_dt = now_utc.replace(month=now_utc.month + 1, day=1,
+                                   hour=0, minute=0, second=0, microsecond=0)
+
+    return {
+        "plan": plan,
+        "jobsThisMonth": jobs_this_month,
+        "monthlyLimit": monthly_limit,
+        "resetDate": reset_dt.isoformat(),
+    }
+
+
 # ---------------------------------------------------------------------------
 # A3 — Admin helpers
 # ---------------------------------------------------------------------------

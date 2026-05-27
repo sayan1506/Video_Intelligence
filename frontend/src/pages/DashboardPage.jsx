@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Zap, Plus, LogOut, RefreshCw, Film, AlertCircle, Crown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getJobs, getBillingStatus } from '../services/api';
+import { getJobs, getQuota } from '../services/api';
 import JobCard from '../components/JobCard';
 
 export default function DashboardPage() {
@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [plan, setPlan] = useState('free');
+  const [quota, setQuota] = useState({ plan: 'free', jobsThisMonth: 0, monthlyLimit: 5, resetDate: null });
 
   const fetchJobs = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -37,8 +37,8 @@ export default function DashboardPage() {
   }, [fetchJobs]);
 
   useEffect(() => {
-    getBillingStatus()
-      .then(({ plan }) => setPlan(plan))
+    getQuota()
+      .then(q => setQuota(q))
       .catch(() => {});
   }, []);
 
@@ -71,7 +71,7 @@ export default function DashboardPage() {
               </div>
             )}
             <span className="max-w-[160px] truncate">{user?.displayName ?? user?.email}</span>
-            {plan === 'pro' ? (
+            {quota.plan === 'pro' ? (
               <span className="flex items-center gap-1 text-xs font-semibold text-violet-400 bg-violet-500/15 border border-violet-500/20 px-2 py-0.5 rounded-full">
                 <Crown className="w-3 h-3" /> Pro
               </span>
@@ -119,9 +119,13 @@ export default function DashboardPage() {
             <p className="text-slate-400 text-sm mt-1">
               {jobs.length > 0 ? `${jobs.length} video${jobs.length !== 1 ? 's' : ''}` : 'No videos yet'}
             </p>
-            {plan === 'free' && jobs.length > 0 && (
+            {quota.plan === 'free' && (
               <p className="text-slate-500 text-xs mt-1">
-                {Math.max(0, 5 - jobs.length)} free video{Math.max(0, 5 - jobs.length) !== 1 ? 's' : ''} remaining this month ·{' '}
+                {Math.max(0, quota.monthlyLimit - quota.jobsThisMonth)} of {quota.monthlyLimit} free video{quota.monthlyLimit !== 1 ? 's' : ''} remaining this month
+                {quota.resetDate && (
+                  <> · resets {new Date(quota.resetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>
+                )}
+                {' · '}
                 <Link to="/pricing" className="text-violet-400 hover:underline">Upgrade to Pro</Link>
               </p>
             )}

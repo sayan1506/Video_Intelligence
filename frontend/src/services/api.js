@@ -222,6 +222,16 @@ export async function getBillingStatus() {
   return response.data   // { plan: 'free' | 'pro' }
 }
 
+/**
+ * Get the current user's quota status.
+ * Returns { plan, jobsThisMonth, monthlyLimit, resetDate }.
+ * Corresponds to GET /quota on the backend.
+ */
+export async function getQuota() {
+  const response = await api.get('/quota')
+  return response.data
+}
+
 
 /**
  * Fetch aggregated stats for the admin dashboard.
