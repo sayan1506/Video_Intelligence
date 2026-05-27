@@ -273,7 +273,9 @@ async def run_pipeline(job_message: JobMessage) -> bool:
     # the format expected by delete_gcs_object().
     # -------------------------------------------------------------------
     try:
-        delete_gcs_object(job_message.gcsPath)
+        await asyncio.get_event_loop().run_in_executor(
+            None, delete_gcs_object, job_message.gcsPath
+        )
         logger.info(f"[{job_id}] Raw video deleted from GCS: {job_message.gcsPath}")
     except Exception as e:
         logger.warning(f"[{job_id}] Raw video GCS delete failed (non-fatal): {e}")

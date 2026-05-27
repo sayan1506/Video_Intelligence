@@ -55,16 +55,26 @@ export default function SharePage() {
           }, FETCH_TIMEOUT_MS);
         });
 
-        const dataPromise = Promise.all([
-          getResult(jobId),
-          getVideoUrl(jobId),
-        ]);
-
-        const [data, freshVideoUrl] = await Promise.race([dataPromise, timeoutPromise]);
+        const data = await Promise.race([getResult(jobId), timeoutPromise]);
 
         clearTimeout(timeoutId);
         setResult(data);
-        setVideoUrl(freshVideoUrl);
+
+        // Fetch video URL separately — a 404 (deleted raw video) must not
+        // block the transcript, summary, and all other shared content.
+        try {
+          const freshVideoUrl = await getVideoUrl(jobId);
+          setVideoUrl(freshVideoUrl);
+        } catch (videoErr) {
+          // 404 = raw video was deleted after processing (Phase 9 behaviour).
+          // VideoPlayer.jsx renders "Video unavailable" when videoUrl is null.
+          if (videoErr?.response?.status === 404) {
+            setVideoUrl(null);
+          } else {
+            console.warn("SharePage getVideoUrl failed:", videoErr);
+            setVideoUrl(null);
+          }
+        }
       } catch (err) {
         clearTimeout(timeoutId);
 
