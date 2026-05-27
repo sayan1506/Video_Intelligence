@@ -6,10 +6,23 @@ const isActiveWord = (wordObj, currentTime) => {
   return currentTime >= wordObj.startTime && currentTime <= wordObj.endTime;
 };
 
-export default function TranscriptPanel({ transcript, currentTime, seekTo, filenameBase = 'transcript', hideExports = false }) {
+export default function TranscriptPanel({ transcript, translatedTranscript, currentTime, seekTo, filenameBase = 'transcript', hideExports = false }) {
   const [query, setQuery] = useState('');
+  const [activeView, setActiveView] = useState('original'); // 'original' | 'english'
   const activeWordRef = useRef(null);
   const scrollContainerRef = useRef(null);
+
+  const showToggle = translatedTranscript != null && translatedTranscript.length > 0;
+
+  // Switch displayed transcript based on active view
+  const displayedTranscript = activeView === 'english' && showToggle
+    ? translatedTranscript
+    : transcript;
+
+  // Clear search query when user switches between views
+  useEffect(() => {
+    setQuery('');
+  }, [activeView]);
 
   const SPEAKER_COLORS = [
     '',                        // 0 = unknown / chunked path — no colour
@@ -25,13 +38,13 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo, filen
     if (!query) return null; // null means no search is active
     const lowerQuery = query.toLowerCase();
     const matches = new Set();
-    transcript.forEach((w, i) => {
+    displayedTranscript.forEach((w, i) => {
       if (w.word.toLowerCase().includes(lowerQuery)) {
         matches.add(i);
       }
     });
     return matches;
-  }, [transcript, query]);
+  }, [displayedTranscript, query]);
 
   useEffect(() => {
     if (!activeWordRef.current || !scrollContainerRef.current) return;
@@ -50,7 +63,7 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo, filen
     }
   }, [currentTime]);
 
-  const isEmpty = !transcript || transcript.length === 0;
+  const isEmpty = !displayedTranscript || displayedTranscript.length === 0;
 
   return (
     <div className="bg-dark-surface border border-dark-border rounded-2xl h-full flex flex-col min-h-0 relative">
@@ -67,13 +80,37 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo, filen
             className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-sans"
           />
         </div>
+        {showToggle && (
+          <div className="flex items-center bg-black/30 border border-white/10 rounded-lg p-0.5">
+            <button
+              onClick={() => setActiveView('original')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                activeView === 'original'
+                  ? 'bg-violet-500/80 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Original
+            </button>
+            <button
+              onClick={() => setActiveView('english')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                activeView === 'english'
+                  ? 'bg-violet-500/80 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              English
+            </button>
+          </div>
+        )}
         <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
-          {transcript?.length || 0} words
+          {displayedTranscript?.length || 0} words
         </div>
-        {!hideExports && transcript && transcript.length > 0 && (
+        {!hideExports && displayedTranscript && displayedTranscript.length > 0 && (
           <div className="flex items-center gap-1">
             <button
-              onClick={() => exportSrt(transcript, filenameBase)}
+              onClick={() => exportSrt(displayedTranscript, filenameBase)}
               title="Download SRT subtitles"
               className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-400 hover:text-white bg-black/30 hover:bg-white/10 border border-white/10 rounded-md transition-colors"
             >
@@ -81,7 +118,7 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo, filen
               SRT
             </button>
             <button
-              onClick={() => exportVtt(transcript, filenameBase)}
+              onClick={() => exportVtt(displayedTranscript, filenameBase)}
               title="Download VTT subtitles"
               className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-400 hover:text-white bg-black/30 hover:bg-white/10 border border-white/10 rounded-md transition-colors"
             >
@@ -102,10 +139,10 @@ export default function TranscriptPanel({ transcript, currentTime, seekTo, filen
           </div>
         ) : (
           <div className="flex flex-wrap gap-x-1 gap-y-1 content-start font-sans leading-relaxed">
-            {transcript.map((wordObj, i) => {
+            {displayedTranscript.map((wordObj, i) => {
               const isActive = isActiveWord(wordObj, currentTime);
               const isSearchMatch = filteredTranscriptIds && filteredTranscriptIds.has(i);
-              const prevWord = i > 0 ? transcript[i - 1] : null;
+              const prevWord = i > 0 ? displayedTranscript[i - 1] : null;
               const speakerChanged = wordObj.speaker > 0 && (!prevWord || prevWord.speaker !== wordObj.speaker);
 
               return (

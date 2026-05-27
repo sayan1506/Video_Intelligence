@@ -74,6 +74,10 @@ class ResultResponse(BaseModel):
     sentiment: Optional[str] = None
     actionItems: Optional[List[str]] = None
 
+    # Multi-language support
+    detectedLanguage: Optional[str] = None
+    translatedTranscript: Optional[List[WordTimestamp]] = None
+
     # C1 — Cost tracking fields (from jobs/{jobId})
     sttAudioMinutes: Optional[float] = None
     sttEstimatedCostUsd: Optional[float] = None

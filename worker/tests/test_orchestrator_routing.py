@@ -58,12 +58,15 @@ def mock_firestore():
 
 @pytest.fixture
 def mock_stt():
-    """Mock _run_stt_with_progress to return a fake transcript."""
+    """Mock _run_stt_with_progress to return a fake (transcript, detected_language) tuple."""
     with patch("pipeline.orchestrator._run_stt_with_progress", new_callable=AsyncMock) as mock:
-        mock.return_value = [
-            {"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1},
-            {"word": "world", "startTime": 0.5, "endTime": 1.0, "speaker": 1},
-        ]
+        mock.return_value = (
+            [
+                {"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1},
+                {"word": "world", "startTime": 0.5, "endTime": 1.0, "speaker": 1},
+            ],
+            "en-IN",
+        )
         yield mock
 
 

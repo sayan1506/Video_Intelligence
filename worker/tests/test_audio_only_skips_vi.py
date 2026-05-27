@@ -106,8 +106,8 @@ async def test_audio_only_never_calls_vi(mime_type: str, params: str):
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        # STT returns a valid transcript
-        mock_stt.return_value = [{"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1}]
+        # STT returns a valid transcript tuple (transcript, detected_language)
+        mock_stt.return_value = ([{"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1}], "en-IN")
         # Summary returns valid data
         mock_summary.return_value = {
             "summary": "Test summary",
@@ -146,8 +146,8 @@ async def test_audio_only_produces_empty_scenes(mime_type: str, params: str):
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        # STT returns a valid transcript
-        mock_stt.return_value = [{"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1}]
+        # STT returns a valid transcript tuple (transcript, detected_language)
+        mock_stt.return_value = ([{"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1}], "en-IN")
         # Summary returns valid data
         mock_summary.return_value = {
             "summary": "Test summary",
@@ -199,7 +199,7 @@ async def test_audio_only_case_insensitive_skips_vi(
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        mock_stt.return_value = [{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}]
+        mock_stt.return_value = ([{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}], "en-IN")
         mock_summary.return_value = {
             "summary": "Test summary",
             "chapters": [],

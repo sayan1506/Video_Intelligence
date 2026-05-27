@@ -131,7 +131,11 @@ def test_property3_write_chunk_embedding_preserves_fields(existing_fields):
         write_chunk_embedding("test-job", 0, test_vector)
 
         # Verify set() was called with merge=True and only the embedding field
-        mock_doc_ref.set.assert_called_once_with(
-            {"embedding": test_vector},
-            merge=True,
-        )
+        # The embedding is wrapped in a Firestore Vector type
+        mock_doc_ref.set.assert_called_once()
+        call_args, call_kwargs = mock_doc_ref.set.call_args
+        assert call_kwargs == {"merge": True}
+        assert "embedding" in call_args[0]
+        # The Vector wraps the list, verify the underlying values
+        from google.cloud.firestore_v1.vector import Vector
+        assert isinstance(call_args[0]["embedding"], Vector)

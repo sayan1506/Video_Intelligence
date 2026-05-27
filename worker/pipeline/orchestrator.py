@@ -27,9 +27,9 @@ from typing import List, Dict, Any
 from google.cloud import storage as gcs_storage
 
 from models.schemas import JobMessage
-from pipeline.speech_to_text import transcribe, download_from_gcs
+from pipeline.speech_to_text import transcribe, transcribe_with_language, download_from_gcs
 from pipeline.video_intelligence import analyse_video
-from pipeline.gemini import generate_summary   # stub today, real in Week 4
+from pipeline.gemini import generate_summary, translate_transcript
 from pipeline.embeddings import embed_transcript_chunks
 from services import firestore
 
@@ -65,6 +65,7 @@ async def run_pipeline(job_message: JobMessage) -> bool:
 
     transcript: list = []
     scenes: list = []
+    detected_language: str = ""
     stt_cost: float = 0.0
     vi_cost: float = 0.0
 
@@ -73,7 +74,7 @@ async def run_pipeline(job_message: JobMessage) -> bool:
         logger.info(f"[{job_id}] Phase 1 — STT only (audio-only path)")
 
         try:
-            transcript = await _run_stt_with_progress(gcs_uri, job_id)
+            transcript, detected_language = await _run_stt_with_progress(gcs_uri, job_id)
         except Exception as e:
             logger.error(f"[{job_id}] STT failed for audio-only file: {e}")
             firestore.mark_processing_failed(
@@ -114,8 +115,11 @@ async def run_pipeline(job_message: JobMessage) -> bool:
             logger.error(f"[{job_id}] STT failed: {transcript_result}")
             phase1_errors.append(f"Speech-to-Text: {transcript_result}")
         else:
-            transcript = transcript_result if transcript_result is not None else []
-            if transcript_result is None:
+            if transcript_result is not None:
+                transcript, detected_language = transcript_result
+            else:
+                transcript = []
+                detected_language = ""
                 logger.warning(f"[{job_id}] STT returned None — treating as empty transcript")
             logger.info(f"[{job_id}] STT complete — {len(transcript)} words")
 
@@ -214,14 +218,37 @@ async def run_pipeline(job_message: JobMessage) -> bool:
     logger.info(f"[{job_id}] Phase 3 — writing results")
 
     try:
-        firestore.write_results(job_id=job_id, transcript=transcript, scenes=scenes)
+        firestore.write_results(job_id=job_id, transcript=transcript, scenes=scenes, detected_language=detected_language)
     except Exception as e:
         logger.error(f"[{job_id}] Firestore write_results failed: {e}")
         firestore.mark_processing_failed(job_id, f"Results write failed: {e}")
         return False
 
+    # -------------------------------------------------------------------
+    # Conditional translation step (between write_results and write_summary)
+    # Translate iff detected_language is NOT "en-US", NOT "en-IN", and NOT ""
+    # -------------------------------------------------------------------
+    translated_transcript = None
+    if detected_language and detected_language not in ("en-US", "en-IN"):
+        try:
+            logger.info(f"[{job_id}] Translation step — translating from {detected_language}")
+            translated_transcript = await translate_transcript(
+                transcript=transcript,
+                source_language=detected_language,
+                job_id=job_id,
+            )
+            if translated_transcript is not None:
+                logger.info(f"[{job_id}] Translation complete — {len(translated_transcript)} words")
+            else:
+                logger.warning(f"[{job_id}] Translation returned None")
+        except Exception as e:
+            logger.error(f"[{job_id}] Translation failed (non-fatal): {e}")
+            translated_transcript = None
+    else:
+        logger.info(f"[{job_id}] Translation skipped — detected_language={detected_language!r}")
+
     try:
-        firestore.write_summary(job_id=job_id, summary_data=summary_data)
+        firestore.write_summary(job_id=job_id, summary_data=summary_data, translated_transcript=translated_transcript)
     except Exception as e:
         logger.error(f"[{job_id}] Firestore write_summary failed (non-fatal): {e}")
 
@@ -263,15 +290,17 @@ def _is_audio_only(content_type: str) -> bool:
     return normalized in AUDIO_ONLY_MIME_TYPES
 
 
-async def _run_stt_with_progress(gcs_uri: str, job_id: str) -> list:
+async def _run_stt_with_progress(gcs_uri: str, job_id: str) -> tuple[list, str]:
     """
-    Wrapper around transcribe() that fires a Firestore progress update
+    Wrapper around transcribe_with_language() that fires a Firestore progress update
     at progress=50 immediately after STT completes.
+
+    Returns a tuple of (transcript, detected_language).
 
     Kept separate from run_pipeline() so asyncio.gather() can still
     run it concurrently with Video Intelligence.
     """
-    result = await transcribe(gcs_uri, job_id=job_id)
+    transcript, detected_language = await transcribe_with_language(gcs_uri, job_id=job_id)
     try:
         # Only update if STT finished first — VI may have already pushed to 75
         # update_job_status with progress=None skips the progress field write,
@@ -279,7 +308,7 @@ async def _run_stt_with_progress(gcs_uri: str, job_id: str) -> list:
         firestore.update_job_status(job_id, "processing", progress=50)
     except Exception:
         pass   # Never fail the pipeline over a progress update
-    return result
+    return (transcript, detected_language)
 
 
 async def _run_vi_with_progress(gcs_uri: str, job_id: str) -> list:

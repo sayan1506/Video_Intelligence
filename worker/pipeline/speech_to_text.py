@@ -484,6 +484,154 @@ def parse_transcript_response(
     return word_timestamps
 
 
+def extract_language_from_response(
+    transcript_results: cloud_speech.BatchRecognizeResults,
+) -> str:
+    """
+    Extract the detected language code from STT response.
+
+    Iterates through results in order, returns the language_code from
+    the first alternative whose language_code is not null and not empty.
+    Returns "" if no valid language_code is found.
+    """
+    if not transcript_results.results:
+        return ""
+
+    for result in transcript_results.results:
+        if not result.alternatives:
+            continue
+        for alternative in result.alternatives:
+            lang = getattr(alternative, "language_code", None)
+            if lang:
+                return lang
+
+    return ""
+
+
+async def transcribe_with_language(
+    gcs_uri: str,
+    job_id: str = "unknown",
+) -> tuple[list[dict], str]:
+    """
+    Transcribe a video and return (transcript, detected_language).
+
+    For the whole-file path: extracts language_code from the first
+    SpeechRecognitionAlternative that has a non-null, non-empty language_code.
+
+    For the chunked path: returns empty string as detected_language
+    (language detection not supported in chunked mode).
+
+    Returns:
+        Tuple of (word_timestamps_list, detected_language_string).
+        detected_language_string is a BCP-47 code (e.g. "hi-IN") or "".
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        video_path = os.path.join(tmpdir, "video.mp4")
+
+        # Step 1: download video from GCS
+        logger.info(f"[{job_id}] Downloading video from GCS...")
+        await asyncio.get_event_loop().run_in_executor(
+            None, download_from_gcs, gcs_uri, video_path
+        )
+
+        # Step 2: check duration to decide whole-file vs chunked path
+        duration = await asyncio.get_event_loop().run_in_executor(
+            None, get_video_duration_seconds, video_path
+        )
+        logger.info(f"[{job_id}] Video duration: {duration:.1f}s — threshold: {CHUNK_THRESHOLD_SECONDS}s")
+
+        # PERF-4: adaptive sample rate — 8kHz for long videos, 16kHz otherwise
+        sample_rate = 8000 if duration > ADAPTIVE_FFMPEG_THRESHOLD_SECONDS else 16000
+        if sample_rate == 8000:
+            logger.info(f"[{job_id}] Long video ({duration/60:.1f} min) — using 8kHz extraction")
+
+        # ── Chunked path for long videos ───────────────────────────────────
+        if duration > CHUNK_THRESHOLD_SECONDS:
+            logger.info(f"[{job_id}] Using PARALLEL CHUNKED STT ({duration:.0f}s video)")
+            transcript = await transcribe_chunked(video_path, job_id, sample_rate=sample_rate)
+            return (transcript, "")
+
+        # ── Whole-file path for short videos ──────────────────────────────
+        logger.info(f"[{job_id}] Using whole-file STT ({duration:.0f}s video)")
+
+        flac_path = os.path.join(tmpdir, "audio.flac")
+
+        logger.info(f"[{job_id}] Extracting audio to FLAC...")
+        await asyncio.get_event_loop().run_in_executor(
+            None, extract_audio_to_flac, video_path, flac_path, sample_rate
+        )
+
+        logger.info(f"[{job_id}] Uploading FLAC to GCS...")
+        flac_gcs_uri = await asyncio.get_event_loop().run_in_executor(
+            None, upload_flac_to_gcs, flac_path, job_id
+        )
+
+    # Step 3 — STT (outside tempdir so local files are cleaned up)
+    logger.info(f"[{job_id}] STT v2: Temp dir cleaned up, proceeding with GCS URI: {flac_gcs_uri}")
+    client = get_speech_client()
+    config = build_recognition_config(
+        sample_rate=sample_rate,
+        enable_diarization=(duration <= CHUNK_THRESHOLD_SECONDS),
+    )
+    recognizer = f"projects/{PROJECT_ID}/locations/global/recognizers/_"
+
+    request = cloud_speech.BatchRecognizeRequest(
+        recognizer=recognizer,
+        config=config,
+        files=[cloud_speech.BatchRecognizeFileMetadata(uri=flac_gcs_uri)],
+        recognition_output_config=cloud_speech.RecognitionOutputConfig(
+            inline_response_config=cloud_speech.InlineOutputConfig(),
+        ),
+    )
+
+    logger.info(f"[{job_id}] STT v2: Submitting BatchRecognize — {flac_gcs_uri}")
+
+    try:
+        operation = client.batch_recognize(request=request)
+    except GoogleAPICallError as e:
+        logger.error(f"[{job_id}] STT v2: BatchRecognize submit failed: {e}")
+        raise
+
+    logger.info(f"[{job_id}] STT v2: Operation started — polling...")
+
+    response = await asyncio.get_event_loop().run_in_executor(
+        None,
+        lambda: _poll_operation_with_retry(operation, job_id=job_id, timeout=3600),
+    )
+
+    logger.info(f"[{job_id}] STT v2: Complete — parsing response")
+
+    file_results = response.results.get(flac_gcs_uri)
+    if not file_results or not file_results.transcript:
+        logger.warning(f"[{job_id}] STT v2: No transcript in response")
+        return ([], "")
+
+    # Extract detected language from the response
+    detected_language = extract_language_from_response(file_results.transcript)
+    logger.info(f"[{job_id}] STT v2: Detected language: {detected_language!r}")
+
+    word_timestamps = parse_transcript_response(file_results.transcript)
+    logger.info(f"[{job_id}] STT v2: Parsed {len(word_timestamps)} words")
+
+    # Write raw STT output to GCS for debugging
+    try:
+        raw_output = {
+            "words": word_timestamps,
+            "metadata": {
+                "job_id": job_id,
+                "gcs_uri": flac_gcs_uri,
+                "word_count": len(word_timestamps),
+                "detected_language": detected_language,
+            },
+        }
+        write_processed_json(job_id, "stt_output.json", raw_output)
+        logger.info(f"[{job_id}] STT v2: Raw output written to GCS")
+    except Exception as e:
+        logger.warning(f"[{job_id}] STT v2: Failed to write raw output (non-fatal): {e}")
+
+    return (word_timestamps, detected_language)
+
+
 async def transcribe(
     gcs_uri: str,
     job_id: str = "unknown",

@@ -136,6 +136,23 @@ async def get_result(job_id: str, current_user: dict | None = Depends(get_option
         except Exception as e:
             logger.warning(f"[{job_id}] Highlights parse failed: {e}")
 
+    # --- Read detectedLanguage from results doc ---
+    detected_language = None
+    if results_doc:
+        detected_language = results_doc.get("detectedLanguage")
+
+    # --- Parse translatedTranscript from summary doc ---
+    translated_transcript = None
+    if summary_doc and summary_doc.get("translatedTranscript"):
+        try:
+            translated_transcript = [
+                WordTimestamp(**entry)
+                for entry in summary_doc["translatedTranscript"]
+            ]
+        except Exception as e:
+            logger.warning(f"[{job_id}] translatedTranscript parse failed: {e}")
+            translated_transcript = None
+
     logger.info(
         f"[{job_id}] Result served — "
         f"words: {len(transcript) if transcript else 0}, "
@@ -163,6 +180,10 @@ async def get_result(job_id: str, current_user: dict | None = Depends(get_option
         highlights=highlights,
         sentiment=summary_doc.get("sentiment") if summary_doc else None,
         actionItems=summary_doc.get("actionItems") if summary_doc else None,
+
+        # Multi-language support
+        detectedLanguage=detected_language,
+        translatedTranscript=translated_transcript,
 
         # C1 — Cost tracking
         sttAudioMinutes=job.get("sttAudioMinutes"),

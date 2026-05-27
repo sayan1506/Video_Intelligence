@@ -204,6 +204,7 @@ export default function SharePage() {
                   <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
                     <TranscriptPanel
                       transcript={result.transcript}
+                      translatedTranscript={result?.translatedTranscript}
                       currentTime={currentTime}
                       seekTo={seekTo}
                       hideExports

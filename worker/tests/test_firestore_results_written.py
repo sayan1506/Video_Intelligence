@@ -87,7 +87,7 @@ async def test_audio_only_path_writes_results_to_firestore(mime_type: str):
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
         transcript = [{"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1}]
-        mock_stt.return_value = transcript
+        mock_stt.return_value = (transcript, "en-IN")
         mock_summary.return_value = {
             "summary": "Test summary",
             "chapters": [],
@@ -106,7 +106,7 @@ async def test_audio_only_path_writes_results_to_firestore(mime_type: str):
         # write_results must be called with transcript and scenes (empty list for audio)
         mock_firestore.write_results.assert_called_once()
         wr_kwargs = mock_firestore.write_results.call_args
-        assert wr_kwargs == call(job_id=job_message.jobId, transcript=transcript, scenes=[]), (
+        assert wr_kwargs == call(job_id=job_message.jobId, transcript=transcript, scenes=[], detected_language="en-IN"), (
             f"write_results called with unexpected args: {wr_kwargs}"
         )
 
@@ -127,7 +127,7 @@ async def test_audio_only_path_writes_summary_to_firestore(mime_type: str):
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        mock_stt.return_value = [{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}]
+        mock_stt.return_value = ([{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}], "en-IN")
         summary_data = {
             "summary": "Generated summary",
             "chapters": [{"title": "Intro", "startTime": 0}],
@@ -144,7 +144,7 @@ async def test_audio_only_path_writes_summary_to_firestore(mime_type: str):
         # write_summary must be called with the summary data
         mock_firestore.write_summary.assert_called_once()
         ws_kwargs = mock_firestore.write_summary.call_args
-        assert ws_kwargs == call(job_id=job_message.jobId, summary_data=summary_data), (
+        assert ws_kwargs == call(job_id=job_message.jobId, summary_data=summary_data, translated_transcript=None), (
             f"write_summary called with unexpected args: {ws_kwargs}"
         )
 
@@ -165,7 +165,7 @@ async def test_audio_only_path_marks_completed_after_writes(mime_type: str):
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        mock_stt.return_value = [{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}]
+        mock_stt.return_value = ([{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}], "en-IN")
         mock_summary.return_value = {
             "summary": "Test summary",
             "chapters": [],
@@ -222,7 +222,7 @@ async def test_video_path_writes_results_to_firestore(mime_type: str):
 
         transcript = [{"word": "video", "startTime": 0.0, "endTime": 0.4, "speaker": 1}]
         scenes = [{"startTime": 0.0, "endTime": 5.0, "confidence": 0.9, "labels": ["scene1"]}]
-        mock_stt.return_value = transcript
+        mock_stt.return_value = (transcript, "en-IN")
         mock_vi.return_value = scenes
         mock_summary.return_value = {
             "summary": "Video summary",
@@ -241,7 +241,7 @@ async def test_video_path_writes_results_to_firestore(mime_type: str):
         # write_results must be called with transcript and scenes
         mock_firestore.write_results.assert_called_once()
         wr_kwargs = mock_firestore.write_results.call_args
-        assert wr_kwargs == call(job_id=job_message.jobId, transcript=transcript, scenes=scenes), (
+        assert wr_kwargs == call(job_id=job_message.jobId, transcript=transcript, scenes=scenes, detected_language="en-IN"), (
             f"write_results called with unexpected args: {wr_kwargs}"
         )
 
@@ -263,7 +263,7 @@ async def test_video_path_writes_summary_to_firestore(mime_type: str):
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        mock_stt.return_value = [{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}]
+        mock_stt.return_value = ([{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}], "en-IN")
         mock_vi.return_value = [{"startTime": 0.0, "endTime": 10.0, "confidence": 0.95, "labels": ["intro"]}]
         summary_data = {
             "summary": "Video summary content",
@@ -281,7 +281,7 @@ async def test_video_path_writes_summary_to_firestore(mime_type: str):
         # write_summary must be called with the summary data
         mock_firestore.write_summary.assert_called_once()
         ws_kwargs = mock_firestore.write_summary.call_args
-        assert ws_kwargs == call(job_id=job_message.jobId, summary_data=summary_data), (
+        assert ws_kwargs == call(job_id=job_message.jobId, summary_data=summary_data, translated_transcript=None), (
             f"write_summary called with unexpected args: {ws_kwargs}"
         )
 
@@ -303,7 +303,7 @@ async def test_video_path_marks_completed_after_writes(mime_type: str):
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        mock_stt.return_value = [{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}]
+        mock_stt.return_value = ([{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}], "en-IN")
         mock_vi.return_value = [{"startTime": 0.0, "endTime": 10.0, "confidence": 0.95, "labels": ["intro"]}]
         mock_summary.return_value = {
             "summary": "Test summary",

@@ -101,8 +101,8 @@ async def test_video_pipeline_invokes_both_stt_and_vi(content_type: str):
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        # STT returns a valid transcript
-        mock_stt.return_value = [{"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1}]
+        # STT returns a valid transcript tuple (transcript, detected_language)
+        mock_stt.return_value = ([{"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1}], "en-IN")
         # VI returns valid scenes
         mock_vi.return_value = [{"startTime": 0.0, "endTime": 5.0, "confidence": 0.9, "labels": ["scene1"]}]
         # Summary returns valid data
@@ -142,7 +142,7 @@ async def test_known_video_types_invoke_both_pipelines(content_type: str):
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        mock_stt.return_value = [{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}]
+        mock_stt.return_value = ([{"word": "test", "startTime": 0.0, "endTime": 0.3, "speaker": 1}], "en-IN")
         mock_vi.return_value = [{"startTime": 0.0, "endTime": 10.0, "confidence": 0.95, "labels": ["intro"]}]
         mock_summary.return_value = {
             "summary": "Test summary",
@@ -182,7 +182,7 @@ async def test_arbitrary_non_audio_types_invoke_both_pipelines(content_type: str
          patch("pipeline.orchestrator.firestore") as mock_firestore, \
          patch("pipeline.orchestrator.generate_summary", new_callable=AsyncMock) as mock_summary:
 
-        mock_stt.return_value = [{"word": "arbitrary", "startTime": 0.0, "endTime": 0.4, "speaker": 1}]
+        mock_stt.return_value = ([{"word": "arbitrary", "startTime": 0.0, "endTime": 0.4, "speaker": 1}], "en-IN")
         mock_vi.return_value = [{"startTime": 0.0, "endTime": 3.0, "confidence": 0.8, "labels": ["test"]}]
         mock_summary.return_value = {
             "summary": "Test summary",

@@ -71,12 +71,15 @@ def mock_firestore():
 
 @pytest.fixture
 def mock_stt():
-    """Mock _run_stt_with_progress to return a fake transcript."""
+    """Mock _run_stt_with_progress to return a fake transcript tuple."""
     with patch("pipeline.orchestrator._run_stt_with_progress", new_callable=AsyncMock) as mock:
-        mock.return_value = [
-            {"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1},
-            {"word": "world", "startTime": 0.5, "endTime": 1.0, "speaker": 1},
-        ]
+        mock.return_value = (
+            [
+                {"word": "hello", "startTime": 0.0, "endTime": 0.5, "speaker": 1},
+                {"word": "world", "startTime": 0.5, "endTime": 1.0, "speaker": 1},
+            ],
+            "en-IN",
+        )
         yield mock
 
 
@@ -161,7 +164,7 @@ class TestVideoPipelineConcurrency:
             import asyncio
             await asyncio.sleep(0.01)
             call_order.append("stt_end")
-            return [{"word": "test", "startTime": 0.0, "endTime": 0.5, "speaker": 1}]
+            return ([{"word": "test", "startTime": 0.0, "endTime": 0.5, "speaker": 1}], "en-IN")
 
         async def mock_vi_slow(*args, **kwargs):
             call_order.append("vi_start")
@@ -256,7 +259,7 @@ class TestVideoProgressAfterPhase1:
         with patch("pipeline.orchestrator._run_stt_with_progress", new_callable=AsyncMock) as mock_stt, \
              patch("pipeline.orchestrator._run_vi_with_progress", new_callable=AsyncMock) as mock_vi:
 
-            mock_stt.return_value = [{"word": "test", "startTime": 0.0, "endTime": 0.5, "speaker": 1}]
+            mock_stt.return_value = ([{"word": "test", "startTime": 0.0, "endTime": 0.5, "speaker": 1}], "en-IN")
             mock_vi.side_effect = RuntimeError("VI API unavailable")
 
             job = _make_video_job(content_type="video/mp4")

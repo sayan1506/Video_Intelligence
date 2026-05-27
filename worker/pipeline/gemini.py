@@ -480,6 +480,273 @@ def _parse_action_items(value, job_id: str) -> list:
 
 
 
+def build_translation_prompt(transcript: list[dict], source_language: str) -> str:
+    """
+    Build a structured prompt instructing Gemini to translate word-level
+    transcript entries from source_language to English.
+
+    The prompt instructs Gemini to:
+    - Translate each entry's word(s) to English
+    - Return a JSON array of objects with: original_index, translated_words
+    - Preserve the mapping between source entries and translated output
+
+    Args:
+        transcript: List of WordTimestamp dicts with 'word', 'startTime',
+                    'endTime', 'speaker' keys.
+        source_language: BCP-47 language code of the source language (e.g. "hi-IN").
+
+    Returns:
+        Complete prompt string ready for Gemini translation call.
+    """
+    # Build the word entries section for the prompt
+    entries = []
+    for i, entry in enumerate(transcript):
+        entries.append(f'  {{ "index": {i}, "word": "{entry.get("word", "")}" }}')
+    entries_json = "[\n" + ",\n".join(entries) + "\n]"
+
+    prompt = f"""You are a professional translator. Translate the following word-level transcript entries from {source_language} to English.
+
+SOURCE LANGUAGE: {source_language}
+TARGET LANGUAGE: English (en)
+
+TRANSCRIPT ENTRIES:
+{entries_json}
+
+INSTRUCTIONS:
+1. Translate each entry's word to English.
+2. A single source word may translate to multiple English words — include all of them in the translated_words array.
+3. Multiple source words may combine into fewer English words — in that case, place the translated word(s) on the first relevant entry and use an empty array for subsequent entries that were absorbed.
+4. Preserve the original_index mapping so each source entry has exactly one corresponding output object.
+5. Return ONLY a valid JSON array. No explanation, no markdown, no code fences.
+
+OUTPUT FORMAT:
+Return a JSON array with exactly {len(transcript)} objects, one per source entry:
+[
+  {{ "original_index": 0, "translated_words": ["Hello"] }},
+  {{ "original_index": 1, "translated_words": ["my", "name"] }},
+  {{ "original_index": 2, "translated_words": ["is"] }}
+]
+
+RULES:
+- Every object MUST have "original_index" (integer matching the source index) and "translated_words" (array of English strings).
+- The "translated_words" array must contain at least one word for entries that carry meaning. Use an empty array only when a source word was absorbed into a neighboring entry's translation.
+- Do NOT add or remove entries — the output array must have exactly {len(transcript)} elements.
+- Translate naturally and idiomatically. Preserve proper nouns as-is.
+
+Return the JSON array now:"""
+
+    return prompt
+
+
+async def translate_transcript(
+    transcript: list[dict],
+    source_language: str,
+    job_id: str = "unknown",
+) -> list[dict] | None:
+    """
+    Translate a word-level transcript to English using Gemini.
+
+    Args:
+        transcript: List of WordTimestamp dicts (word, startTime, endTime, speaker).
+        source_language: BCP-47 code of the source language (e.g. "hi-IN").
+        job_id: For logging.
+
+    Returns:
+        List of translated WordTimestamp dicts with English words and
+        distributed timing, or None if translation fails.
+
+    Retry policy: Up to 2 retries on transient errors (ServiceUnavailable,
+    ResourceExhausted). Returns None after exhausting retries.
+    Returns None immediately on safety blocks.
+    """
+    logger.info(
+        f"[{job_id}] Translation started — "
+        f"words: {len(transcript)}, source_language: {source_language}"
+    )
+
+    prompt = build_translation_prompt(transcript, source_language)
+    client = get_gemini_client()
+    last_exception = None
+
+    for attempt in range(1, GEMINI_MAX_RETRIES + 2):  # initial + up to 2 retries
+        try:
+            response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=prompt,
+                config=GENERATION_CONFIG,
+            )
+
+            # Check for empty candidates (no response)
+            if not response.candidates:
+                logger.error(
+                    f"[{job_id}] Translation: Gemini returned no candidates — attempt {attempt}"
+                )
+                last_exception = RuntimeError("No candidates in response")
+                time_module.sleep(GEMINI_RETRY_BACKOFF * attempt)
+                continue
+
+            finish_reason = response.candidates[0].finish_reason.name
+
+            # Safety block — return None immediately, no retry
+            if finish_reason == "SAFETY":
+                logger.error(
+                    f"[{job_id}] Translation blocked by safety filters — not retrying"
+                )
+                return None
+
+            # Successful response — parse it
+            raw_text = response.text
+            logger.info(
+                f"[{job_id}] Translation Gemini call OK (attempt {attempt}) — "
+                f"response length: {len(raw_text)} chars"
+            )
+
+            result = parse_translation_response(raw_text, transcript, job_id=job_id)
+            if result is None:
+                logger.error(f"[{job_id}] Translation response parsing failed")
+                return None
+
+            logger.info(
+                f"[{job_id}] Translation complete — "
+                f"translated words: {len(result)}"
+            )
+            return result
+
+        except (ServiceUnavailable, ResourceExhausted) as e:
+            last_exception = e
+            if attempt <= GEMINI_MAX_RETRIES:
+                backoff = GEMINI_RETRY_BACKOFF * attempt
+                logger.warning(
+                    f"[{job_id}] Translation transient error (attempt {attempt}): {e}. "
+                    f"Retrying in {backoff}s..."
+                )
+                time_module.sleep(backoff)
+            else:
+                logger.error(
+                    f"[{job_id}] Translation failed after {GEMINI_MAX_RETRIES} retries: {e}"
+                )
+
+        except Exception as e:
+            # Non-retryable error — fail immediately
+            logger.error(f"[{job_id}] Translation non-retryable error: {e}")
+            return None
+
+    logger.error(
+        f"[{job_id}] Translation: all retries exhausted. Last error: {last_exception}"
+    )
+    return None
+
+
+def parse_translation_response(
+    raw_text: str,
+    original_transcript: list[dict],
+    job_id: str = "unknown",
+) -> list[dict] | None:
+    """
+    Parse Gemini's translation response and distribute timing.
+
+    For each source entry that maps to N translated English words:
+    - Divide the source entry's time range equally among N words
+    - Assign the source entry's speaker to all N words
+    - Round all time values to 3 decimal places
+
+    Args:
+        raw_text: Raw JSON string from Gemini's translation response.
+        original_transcript: The original word-level transcript (list of
+            WordTimestamp dicts with word, startTime, endTime, speaker).
+        job_id: For logging.
+
+    Returns:
+        List of translated WordTimestamp dicts, or None if the response
+        cannot be parsed into a valid structure.
+    """
+    # Step 1: Parse JSON
+    try:
+        data = json.loads(raw_text)
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.error(f"[{job_id}] Translation response JSON parse failed: {e}")
+        return None
+
+    # Step 2: Validate top-level structure is a list
+    if not isinstance(data, list):
+        logger.error(f"[{job_id}] Translation response is not a list — type: {type(data)}")
+        return None
+
+    # Step 3: Validate length matches original transcript
+    if len(data) != len(original_transcript):
+        logger.error(
+            f"[{job_id}] Translation response length mismatch: "
+            f"got {len(data)}, expected {len(original_transcript)}"
+        )
+        return None
+
+    # Step 4: Validate each entry and build translated transcript
+    translated_transcript: list[dict] = []
+
+    for i, entry in enumerate(data):
+        # Validate entry is a dict with required fields
+        if not isinstance(entry, dict):
+            logger.error(f"[{job_id}] Translation entry {i} is not a dict")
+            return None
+
+        if "original_index" not in entry or "translated_words" not in entry:
+            logger.error(f"[{job_id}] Translation entry {i} missing required fields")
+            return None
+
+        # Validate original_index is an integer
+        original_index = entry["original_index"]
+        if not isinstance(original_index, int):
+            logger.error(f"[{job_id}] Translation entry {i} has non-integer original_index")
+            return None
+
+        # Validate translated_words is a list of strings
+        translated_words = entry["translated_words"]
+        if not isinstance(translated_words, list):
+            logger.error(f"[{job_id}] Translation entry {i} has non-list translated_words")
+            return None
+
+        # Check for empty translated_words — this is a failure condition
+        if len(translated_words) == 0:
+            logger.error(f"[{job_id}] Translation entry {i} has 0 translated words")
+            return None
+
+        # Validate all words are strings
+        for w_idx, word in enumerate(translated_words):
+            if not isinstance(word, str):
+                logger.error(
+                    f"[{job_id}] Translation entry {i}, word {w_idx} is not a string"
+                )
+                return None
+
+        # Get source entry timing and speaker
+        source_entry = original_transcript[i]
+        start_time = source_entry["startTime"]
+        end_time = source_entry["endTime"]
+        speaker = source_entry.get("speaker", 0)
+
+        # Distribute time equally among N translated words
+        n = len(translated_words)
+        duration = end_time - start_time
+        word_duration = duration / n
+
+        for word_idx, word in enumerate(translated_words):
+            word_start = round(start_time + word_idx * word_duration, 3)
+            word_end = round(start_time + (word_idx + 1) * word_duration, 3)
+
+            # Ensure the last word's endTime matches the source entry's endTime exactly
+            if word_idx == n - 1:
+                word_end = round(end_time, 3)
+
+            translated_transcript.append({
+                "word": word,
+                "startTime": word_start,
+                "endTime": word_end,
+                "speaker": speaker,
+            })
+
+    return translated_transcript
+
+
 # Retry config for transient Gemini API errors
 GEMINI_MAX_RETRIES = 2
 GEMINI_RETRY_BACKOFF = 5   # seconds

@@ -35,6 +35,8 @@ MOCK_TRANSCRIPT = [
     {"word": "world", "startTime": 0.5, "endTime": 1.0, "speaker": 1},
 ]
 
+MOCK_STT_RESULT = (MOCK_TRANSCRIPT, "en-IN")
+
 MOCK_SCENES = [
     {"startTime": 0.0, "endTime": 5.0, "confidence": 0.9, "labels": ["outdoor"]},
 ]
@@ -54,7 +56,7 @@ class TestRunPipelineVideoPath:
 
         with (
             patch("pipeline.orchestrator._run_stt_with_progress",
-                  new=AsyncMock(return_value=MOCK_TRANSCRIPT)),
+                  new=AsyncMock(return_value=MOCK_STT_RESULT)),
             patch("pipeline.orchestrator._run_vi_with_progress",
                   new=AsyncMock(return_value=MOCK_SCENES)),
             patch("pipeline.orchestrator.generate_summary",
@@ -79,7 +81,7 @@ class TestRunPipelineVideoPath:
 
         with (
             patch("pipeline.orchestrator._run_stt_with_progress",
-                  new=AsyncMock(return_value=MOCK_TRANSCRIPT)),
+                  new=AsyncMock(return_value=MOCK_STT_RESULT)),
             patch("pipeline.orchestrator._run_vi_with_progress",
                   new=AsyncMock(return_value=MOCK_SCENES)),
             patch("pipeline.orchestrator.generate_summary",
@@ -105,7 +107,7 @@ class TestRunPipelineAudioOnlyPath:
 
         with (
             patch("pipeline.orchestrator._run_stt_with_progress",
-                  new=AsyncMock(return_value=MOCK_TRANSCRIPT)),
+                  new=AsyncMock(return_value=MOCK_STT_RESULT)),
             patch("pipeline.orchestrator.generate_summary",
                   new=AsyncMock(return_value=MOCK_SUMMARY)),
             patch("pipeline.orchestrator.firestore") as mock_fs,

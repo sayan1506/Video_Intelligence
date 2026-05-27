@@ -127,13 +127,15 @@ def write_results(
     job_id: str,
     transcript: List[Dict[str, Any]],
     scenes: List[Dict[str, Any]],
+    detected_language: str = "",
 ) -> None:
     """
     Write AI pipeline outputs to Firestore.
 
     Transcript is written as a subcollection (transcript_chunks/) to bypass
     the 1 MB per-document limit. The parent results/{jobId} document stores
-    scenes, labels, and transcriptChunkCount — but NOT the transcript array.
+    scenes, labels, transcriptChunkCount, and detectedLanguage — but NOT
+    the transcript array.
 
     The backend GET /result endpoint reassembles chunks before returning.
 
@@ -143,9 +145,10 @@ def write_results(
            so the backend knows how many chunks to fetch.
 
     Args:
-        job_id:     Document ID in the results collection.
-        transcript: Full transcript — no truncation applied (BF-3 fix).
-        scenes:     List of Scene dicts from the Video Intelligence pipeline.
+        job_id:            Document ID in the results collection.
+        transcript:        Full transcript — no truncation applied (BF-3 fix).
+        scenes:            List of Scene dicts from the Video Intelligence pipeline.
+        detected_language: BCP-47 language code (max 11 chars) or empty string.
     """
     db = get_db()
 
@@ -167,6 +170,7 @@ def write_results(
         "scenes": scenes,
         "labels": all_labels,
         "transcriptChunkCount": chunk_count,   # tells backend how many chunks to fetch
+        "detectedLanguage": detected_language,  # BCP-47 code or empty string
         "writtenAt": datetime.now(timezone.utc),
     }
 
@@ -176,7 +180,8 @@ def write_results(
         f"[{job_id}] Results written — "
         f"transcript words: {len(transcript)} ({chunk_count} chunks), "
         f"scenes: {len(scenes)}, "
-        f"unique labels: {len(all_labels)}"
+        f"unique labels: {len(all_labels)}, "
+        f"detectedLanguage: '{detected_language}'"
     )
 
 
@@ -236,6 +241,7 @@ def write_transcript_chunks(
 def write_summary(
     job_id: str,
     summary_data: Dict[str, Any],
+    translated_transcript: list[dict] | None = None,
 ) -> None:
     """
     Write Gemini summary output to summaries/{jobId} in Firestore.
@@ -245,9 +251,12 @@ def write_summary(
     no manual collection setup needed.
 
     Args:
-        job_id:       Used as the document ID in the summaries collection.
-        summary_data: Dict with keys: summary, chapters, highlights,
-                      sentiment, actionItems.
+        job_id:                Used as the document ID in the summaries collection.
+        summary_data:          Dict with keys: summary, chapters, highlights,
+                               sentiment, actionItems.
+        translated_transcript: Optional list of WordTimestamp dicts (word, startTime,
+                               endTime, speaker). When non-None and non-empty, written
+                               as `translatedTranscript` array field. Omitted otherwise.
     """
     db = get_db()
 
@@ -256,6 +265,9 @@ def write_summary(
         "writtenAt": datetime.now(timezone.utc),
         **summary_data,
     }
+
+    if translated_transcript is not None and len(translated_transcript) > 0:
+        doc_data["translatedTranscript"] = translated_transcript
 
     db.collection("summaries").document(job_id).set(doc_data)
     logger.info(f"[{job_id}] Summary written to Firestore")
