@@ -219,6 +219,7 @@ export default function ResultPage() {
                 <TranscriptPanel 
                   transcript={result?.transcript ?? []}
                   translatedTranscript={result?.translatedTranscript}
+                  detectedLanguage={result?.detectedLanguage}
                   currentTime={currentTime} 
                   seekTo={seekTo}
                   filenameBase={jobId}

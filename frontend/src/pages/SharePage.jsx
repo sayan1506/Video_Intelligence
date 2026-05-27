@@ -205,6 +205,7 @@ export default function SharePage() {
                     <TranscriptPanel
                       transcript={result.transcript}
                       translatedTranscript={result?.translatedTranscript}
+                      detectedLanguage={result?.detectedLanguage}
                       currentTime={currentTime}
                       seekTo={seekTo}
                       hideExports

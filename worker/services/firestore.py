@@ -242,6 +242,7 @@ def write_summary(
     job_id: str,
     summary_data: Dict[str, Any],
     translated_transcript: list[dict] | None = None,
+    detected_language: str = "",
 ) -> None:
     """
     Write Gemini summary output to summaries/{jobId} in Firestore.
@@ -257,6 +258,8 @@ def write_summary(
         translated_transcript: Optional list of WordTimestamp dicts (word, startTime,
                                endTime, speaker). When non-None and non-empty, written
                                as `translatedTranscript` array field. Omitted otherwise.
+        detected_language:     BCP-47 language code (e.g. "hi-IN") or empty string.
+                               Written as `detectedLanguage` field when non-empty.
     """
     db = get_db()
 
@@ -268,6 +271,8 @@ def write_summary(
 
     if translated_transcript is not None and len(translated_transcript) > 0:
         doc_data["translatedTranscript"] = translated_transcript
+    if detected_language:
+        doc_data["detectedLanguage"] = detected_language
 
     db.collection("summaries").document(job_id).set(doc_data)
     logger.info(f"[{job_id}] Summary written to Firestore")

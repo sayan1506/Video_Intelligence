@@ -6,7 +6,7 @@ const isActiveWord = (wordObj, currentTime) => {
   return currentTime >= wordObj.startTime && currentTime <= wordObj.endTime;
 };
 
-export default function TranscriptPanel({ transcript, translatedTranscript, currentTime, seekTo, filenameBase = 'transcript', hideExports = false }) {
+export default function TranscriptPanel({ transcript, translatedTranscript, detectedLanguage = null, currentTime, seekTo, filenameBase = 'transcript', hideExports = false }) {
   const [query, setQuery] = useState('');
   const [activeView, setActiveView] = useState('original'); // 'original' | 'english'
   const activeWordRef = useRef(null);
@@ -84,6 +84,7 @@ export default function TranscriptPanel({ transcript, translatedTranscript, curr
           <div className="flex items-center bg-black/30 border border-white/10 rounded-lg p-0.5">
             <button
               onClick={() => setActiveView('original')}
+              title={`Show original${detectedLanguage ? ` (${detectedLanguage})` : ''}`}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 activeView === 'original'
                   ? 'bg-violet-500/80 text-white shadow-sm'
@@ -94,6 +95,7 @@ export default function TranscriptPanel({ transcript, translatedTranscript, curr
             </button>
             <button
               onClick={() => setActiveView('english')}
+              title="Show English translation"
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 activeView === 'english'
                   ? 'bg-violet-500/80 text-white shadow-sm'

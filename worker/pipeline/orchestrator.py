@@ -228,8 +228,10 @@ async def run_pipeline(job_message: JobMessage) -> bool:
     # Conditional translation step (between write_results and write_summary)
     # Translate iff detected_language is NOT "en-US", NOT "en-IN", and NOT ""
     # -------------------------------------------------------------------
+    # BUG-4 fix: expanded English codes to avoid unnecessary translation of en-GB/en-AU/etc.
+    ENGLISH_CODES = {"en-US", "en-IN", "en-GB", "en-AU", "en-CA", "en-SG"}
     translated_transcript = None
-    if detected_language and detected_language not in ("en-US", "en-IN"):
+    if detected_language and detected_language not in ENGLISH_CODES:
         try:
             logger.info(f"[{job_id}] Translation step — translating from {detected_language}")
             translated_transcript = await translate_transcript(
@@ -248,7 +250,7 @@ async def run_pipeline(job_message: JobMessage) -> bool:
         logger.info(f"[{job_id}] Translation skipped — detected_language={detected_language!r}")
 
     try:
-        firestore.write_summary(job_id=job_id, summary_data=summary_data, translated_transcript=translated_transcript)
+        firestore.write_summary(job_id=job_id, summary_data=summary_data, translated_transcript=translated_transcript, detected_language=detected_language)
     except Exception as e:
         logger.error(f"[{job_id}] Firestore write_summary failed (non-fatal): {e}")
 

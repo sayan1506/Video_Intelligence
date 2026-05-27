@@ -1,5 +1,6 @@
 # worker/pipeline/gemini.py
 
+import asyncio
 import json
 import logging
 import os
@@ -570,10 +571,14 @@ async def translate_transcript(
 
     for attempt in range(1, GEMINI_MAX_RETRIES + 2):  # initial + up to 2 retries
         try:
-            response = client.models.generate_content(
-                model=MODEL_NAME,
-                contents=prompt,
-                config=GENERATION_CONFIG,
+            # BUG-2 fix: run blocking Gemini call in executor to avoid blocking event loop
+            response = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: client.models.generate_content(
+                    model=MODEL_NAME,
+                    contents=prompt,
+                    config=GENERATION_CONFIG,
+                ),
             )
 
             # Check for empty candidates (no response)
@@ -582,7 +587,7 @@ async def translate_transcript(
                     f"[{job_id}] Translation: Gemini returned no candidates — attempt {attempt}"
                 )
                 last_exception = RuntimeError("No candidates in response")
-                time_module.sleep(GEMINI_RETRY_BACKOFF * attempt)
+                await asyncio.sleep(GEMINI_RETRY_BACKOFF * attempt)
                 continue
 
             finish_reason = response.candidates[0].finish_reason.name
@@ -620,7 +625,7 @@ async def translate_transcript(
                     f"[{job_id}] Translation transient error (attempt {attempt}): {e}. "
                     f"Retrying in {backoff}s..."
                 )
-                time_module.sleep(backoff)
+                await asyncio.sleep(backoff)
             else:
                 logger.error(
                     f"[{job_id}] Translation failed after {GEMINI_MAX_RETRIES} retries: {e}"

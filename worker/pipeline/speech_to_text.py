@@ -637,6 +637,10 @@ async def transcribe(
     job_id: str = "unknown",
 ) -> list[dict]:
     """
+    .. deprecated::
+        Use ``transcribe_with_language()`` instead. This function is kept for
+        backward compatibility but is no longer called by the orchestrator.
+
     Transcribe a video file to a flat list of word-timestamp dicts.
 
     Public entry point called by orchestrator.py. Routing logic:
