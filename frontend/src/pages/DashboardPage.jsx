@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [quota, setQuota] = useState({ plan: 'free', jobsThisMonth: 0, monthlyLimit: 5, resetDate: null });
+  const [quotaError, setQuotaError] = useState(false);
 
   const fetchJobs = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -39,7 +40,7 @@ export default function DashboardPage() {
   useEffect(() => {
     getQuota()
       .then(q => setQuota(q))
-      .catch(() => {});
+      .catch(() => setQuotaError(true));
   }, []);
 
   const handleSignOut = async () => {
@@ -121,9 +122,15 @@ export default function DashboardPage() {
             </p>
             {quota.plan === 'free' && (
               <p className="text-slate-500 text-xs mt-1">
-                {Math.max(0, quota.monthlyLimit - quota.jobsThisMonth)} of {quota.monthlyLimit} free video{quota.monthlyLimit !== 1 ? 's' : ''} remaining this month
-                {quota.resetDate && (
-                  <> · resets {new Date(quota.resetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>
+                {quotaError ? (
+                  <>Could not load quota — try refreshing.</>
+                ) : (
+                  <>
+                    {Math.max(0, quota.monthlyLimit - quota.jobsThisMonth)} of {quota.monthlyLimit} free video{quota.monthlyLimit !== 1 ? 's' : ''} remaining this month
+                    {quota.resetDate && (
+                      <> · resets {new Date(quota.resetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>
+                    )}
+                  </>
                 )}
                 {' · '}
                 <Link to="/pricing" className="text-violet-400 hover:underline">Upgrade to Pro</Link>

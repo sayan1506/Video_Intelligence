@@ -497,9 +497,8 @@ def get_quota_status(user_id: str) -> dict:
     jobs_this_month = get_user_job_count_this_month(user_id)
 
     # Resolve limit from env vars (same source as upload.py)
-    import os as _os
-    free_limit = int(_os.getenv("FREE_PLAN_MONTHLY_LIMIT", 5))
-    pro_limit = int(_os.getenv("PRO_PLAN_MONTHLY_LIMIT", 50))
+    free_limit = int(os.getenv("FREE_PLAN_MONTHLY_LIMIT", "5"))
+    pro_limit = int(os.getenv("PRO_PLAN_MONTHLY_LIMIT", "50"))
     plan_limits = {"free": free_limit, "pro": pro_limit}
     monthly_limit = plan_limits.get(plan, free_limit)
 

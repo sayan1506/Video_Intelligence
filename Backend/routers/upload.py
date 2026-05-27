@@ -18,8 +18,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 MAX_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", 500))
-FREE_PLAN_LIMIT = int(os.getenv("FREE_PLAN_MONTHLY_LIMIT", 5))
-PRO_PLAN_LIMIT = int(os.getenv("PRO_PLAN_MONTHLY_LIMIT", 50))
+FREE_PLAN_LIMIT = int(os.getenv("FREE_PLAN_MONTHLY_LIMIT", "5"))
+PRO_PLAN_LIMIT = int(os.getenv("PRO_PLAN_MONTHLY_LIMIT", "50"))
 ALLOWED_TYPES = os.getenv(
     "ALLOWED_VIDEO_TYPES",
     "video/mp4,video/quicktime,video/avi,video/x-msvideo,video/x-matroska,video/matroska"
