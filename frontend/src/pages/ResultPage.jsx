@@ -57,14 +57,28 @@ export default function ResultPage() {
     
     const fetchResult = async () => {
       try {
-        const [data, freshVideoUrl] = await Promise.all([
-          getResult(jobId),
-          getVideoUrl(jobId),
-        ]);
+        const data = await getResult(jobId);
         setResult(data);
-        setVideoUrl(freshVideoUrl);
         setIsPublic(data.isPublic ?? false);
         setShareUrl(data.shareUrl ?? null);
+
+        // Fetch video URL separately — a 404 (deleted raw video) must not
+        // block the transcript, summary, and all other result data.
+        try {
+          const freshVideoUrl = await getVideoUrl(jobId);
+          setVideoUrl(freshVideoUrl);
+        } catch (videoErr) {
+          // 404 = raw video was deleted after processing (Phase 9 behaviour).
+          // VideoPlayer.jsx renders "Video unavailable" when videoUrl is null.
+          const status = videoErr?.response?.status;
+          if (status === 404) {
+            setVideoUrl(null);
+          } else {
+            // Non-404 errors (network, 5xx) — also degrade gracefully.
+            console.warn("getVideoUrl failed:", videoErr);
+            setVideoUrl(null);
+          }
+        }
       } catch (err) {
         console.error(err);
         setError("Failed to load result.");
