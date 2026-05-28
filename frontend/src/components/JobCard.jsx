@@ -10,17 +10,17 @@ const STATUS_CONFIG = {
   completed: {
     label: 'Completed',
     icon: <CheckCircle className="w-3.5 h-3.5" />,
-    className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+    className: 'bg-gold-accent-muted text-gold-light-accent dark:text-gold-accent border-gold-light-border dark:border-gold-border',
   },
   processing: {
     label: 'Processing',
     icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
-    className: 'bg-violet-500/15 text-violet-400 border-violet-500/20',
+    className: 'bg-gold-accent-muted text-gold-light-accent dark:text-gold-accent border-gold-light-border dark:border-gold-border',
   },
   pending: {
     label: 'Pending',
     icon: <Clock className="w-3.5 h-3.5" />,
-    className: 'bg-slate-500/15 text-slate-400 border-slate-500/20',
+    className: 'bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary text-gold-light-text-secondary dark:text-gold-text-secondary border-gold-light-border dark:border-gold-border',
   },
   failed: {
     label: 'Failed',
@@ -81,15 +81,18 @@ export default function JobCard({ job }) {
   return (
     <div
       onClick={isClickable ? handleClick : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      role={isClickable ? 'button' : undefined}
+      aria-label={isClickable ? `View ${job.filename} — ${statusCfg.label}` : undefined}
       className={[
-        'bg-dark-surface border border-dark-border rounded-2xl overflow-hidden transition-all duration-200',
+        'bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border-t-2 border-t-gold-light-accent dark:border-t-gold-accent border border-gold-light-border dark:border-gold-border rounded-lg overflow-hidden transition-all duration-200',
         isClickable
-          ? 'cursor-pointer hover:border-violet-500/40 hover:shadow-[0_0_20px_-5px_rgba(124,58,237,0.3)] hover:scale-[1.01]'
+          ? 'cursor-pointer hover:border-gold-light-accent-hover dark:hover:border-gold-accent-hover hover:shadow-[0_0_20px_-5px_rgba(212,175,55,0.2)] hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent'
           : 'opacity-70',
       ].join(' ')}
     >
       {/* Thumbnail */}
-      <div className="aspect-video bg-dark-base flex items-center justify-center overflow-hidden">
+      <div className="aspect-video bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary flex items-center justify-center overflow-hidden">
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
@@ -97,7 +100,7 @@ export default function JobCard({ job }) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="flex flex-col items-center gap-2 text-slate-600">
+          <div className="flex flex-col items-center gap-2 text-gold-light-text-muted dark:text-gold-text-muted">
             <Film className="w-10 h-10" />
             {job.status === 'processing' || job.status === 'pending' ? (
               <span className="text-xs">Processing…</span>
@@ -109,7 +112,7 @@ export default function JobCard({ job }) {
       {/* Card body */}
       <div className="p-4">
         {/* Filename */}
-        <p className="text-sm font-medium text-slate-200 truncate mb-2" title={job.filename}>
+        <p className="text-sm font-medium text-gold-light-text-primary dark:text-gold-text-primary truncate mb-2" title={job.filename}>
           {job.filename}
         </p>
 
@@ -124,7 +127,7 @@ export default function JobCard({ job }) {
 
           {/* Processing time (completed only) */}
           {job.processingTime ? (
-            <span className="text-xs text-slate-500 flex items-center gap-1">
+            <span className="text-xs text-gold-light-text-muted dark:text-gold-text-muted flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {formatDuration(job.processingTime)}
             </span>
@@ -132,7 +135,7 @@ export default function JobCard({ job }) {
         </div>
 
         {/* Created date */}
-        <p className="text-xs text-slate-600 mt-2">{formatDate(job.createdAt)}</p>
+        <p className="text-xs text-gold-light-text-muted dark:text-gold-text-muted mt-2">{formatDate(job.createdAt)}</p>
       </div>
     </div>
   );

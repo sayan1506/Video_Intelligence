@@ -21,7 +21,7 @@ describe('CopyLinkButton', () => {
   describe('visibility based on isPublic prop', () => {
     it('renders the Copy Link button when isPublic is true', () => {
       render(<CopyLinkButton shareUrl={shareUrl} isPublic={true} />);
-      expect(screen.getByRole('button', { name: /copy link/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /copy share link/i })).toBeInTheDocument();
     });
 
     it('renders nothing when isPublic is false', () => {
@@ -36,7 +36,7 @@ describe('CopyLinkButton', () => {
       Object.assign(navigator, { clipboard: { writeText } });
 
       render(<CopyLinkButton shareUrl={shareUrl} isPublic={true} />);
-      const button = screen.getByRole('button', { name: /copy link/i });
+      const button = screen.getByRole('button', { name: /copy share link/i });
 
       await act(async () => {
         fireEvent.click(button);
@@ -52,7 +52,7 @@ describe('CopyLinkButton', () => {
       Object.assign(navigator, { clipboard: { writeText } });
 
       render(<CopyLinkButton shareUrl={shareUrl} isPublic={true} />);
-      const button = screen.getByRole('button', { name: /copy link/i });
+      const button = screen.getByRole('button', { name: /copy share link/i });
 
       await act(async () => {
         fireEvent.click(button);
@@ -66,7 +66,7 @@ describe('CopyLinkButton', () => {
       Object.assign(navigator, { clipboard: { writeText } });
 
       render(<CopyLinkButton shareUrl={shareUrl} isPublic={true} />);
-      const button = screen.getByRole('button', { name: /copy link/i });
+      const button = screen.getByRole('button', { name: /copy share link/i });
 
       await act(async () => {
         fireEvent.click(button);
@@ -89,7 +89,7 @@ describe('CopyLinkButton', () => {
       render(<CopyLinkButton shareUrl={shareUrl} isPublic={true} />);
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /copy link/i }));
+        fireEvent.click(screen.getByRole('button', { name: /copy share link/i }));
       });
 
       act(() => {
@@ -108,7 +108,7 @@ describe('CopyLinkButton', () => {
       render(<CopyLinkButton shareUrl={shareUrl} isPublic={true} />);
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /copy link/i }));
+        fireEvent.click(screen.getByRole('button', { name: /copy share link/i }));
       });
 
       expect(screen.getByText(/copy failed/i)).toBeInTheDocument();
@@ -125,7 +125,7 @@ describe('CopyLinkButton', () => {
       render(<CopyLinkButton shareUrl={shareUrl} isPublic={true} />);
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /copy link/i }));
+        fireEvent.click(screen.getByRole('button', { name: /copy share link/i }));
       });
 
       expect(screen.queryByText('Copied!')).not.toBeInTheDocument();

@@ -45,8 +45,8 @@ export default function VideoPlayer({ videoUrl, scenes, highlights, currentTime,
 
   if (!videoUrl) {
     return (
-      <div className="bg-dark-surface border border-dark-border rounded-2xl p-4 md:p-6 w-full">
-        <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+      <div className="bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border-t border-t-gold-light-accent dark:border-t-gold-accent rounded-2xl p-4 md:p-6 w-full">
+        <div className="flex flex-col items-center justify-center h-64 text-gold-light-text-muted dark:text-gold-text-muted">
           <VideoOff className="w-10 h-10 mb-3 opacity-50" />
           <p className="text-sm">Video unavailable</p>
         </div>
@@ -55,7 +55,7 @@ export default function VideoPlayer({ videoUrl, scenes, highlights, currentTime,
   }
 
   return (
-    <div className="bg-dark-surface border border-dark-border rounded-2xl p-4 md:p-6 w-full">
+    <div className="bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border-t border-t-gold-light-accent dark:border-t-gold-accent rounded-2xl p-4 md:p-6 w-full">
       <div data-vjs-player className="w-full aspect-video">
         <video ref={videoRef} className="video-js vjs-big-play-centered rounded-lg overflow-hidden" />
       </div>

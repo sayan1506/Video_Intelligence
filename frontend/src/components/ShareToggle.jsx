@@ -52,12 +52,12 @@ export default function ShareToggle({ jobId, isPublic, onToggle }) {
         type="button"
         role="switch"
         aria-checked={isPublic}
-        aria-label={isPublic ? 'Public' : 'Private'}
+        aria-label={isPublic ? 'Disable public sharing' : 'Enable public sharing'}
         disabled={loading}
         onClick={handleToggle}
         className={[
-          'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:ring-offset-2 focus:ring-offset-dark-base',
-          isPublic ? 'bg-violet-600' : 'bg-slate-600',
+          'relative inline-flex min-h-[44px] min-w-[44px] h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent focus-visible:ring-offset-2 focus-visible:ring-offset-gold-light-bg-primary dark:focus-visible:ring-offset-gold-bg-primary',
+          isPublic ? 'bg-gold-light-accent dark:bg-gold-accent' : 'bg-gold-light-border dark:bg-gold-border',
           loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
         ].join(' ')}
       >
@@ -70,15 +70,15 @@ export default function ShareToggle({ jobId, isPublic, onToggle }) {
       </button>
 
       {/* Label with icon */}
-      <span className="flex items-center gap-1.5 text-sm text-slate-300">
+      <span className="flex items-center gap-1.5 text-sm text-gold-light-text-secondary dark:text-gold-text-secondary">
         {isPublic ? (
           <>
-            <Globe className="w-3.5 h-3.5 text-violet-400" />
+            <Globe className="w-3.5 h-3.5 text-gold-light-accent dark:text-gold-accent" />
             <span>Public</span>
           </>
         ) : (
           <>
-            <Lock className="w-3.5 h-3.5 text-slate-400" />
+            <Lock className="w-3.5 h-3.5 text-gold-light-text-muted dark:text-gold-text-muted" />
             <span>Private</span>
           </>
         )}
@@ -88,7 +88,7 @@ export default function ShareToggle({ jobId, isPublic, onToggle }) {
       {error && (
         <div
           role="alert"
-          className="absolute top-full left-0 mt-2 z-50 px-3 py-2 bg-red-500/90 text-white text-xs rounded-lg shadow-lg whitespace-nowrap animate-fade-in"
+          className="absolute top-full left-0 mt-2 z-50 px-3 py-2 bg-red-500/90 text-gold-text-primary text-xs rounded-lg shadow-lg whitespace-nowrap animate-fade-in"
         >
           {error}
         </div>

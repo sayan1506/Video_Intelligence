@@ -37,13 +37,13 @@ export default function CopyLinkButton({ shareUrl, isPublic }) {
       <button
         onClick={handleCopy}
         disabled={copied}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-dark-border hover:border-slate-500 transition-all disabled:opacity-60 disabled:cursor-default"
-        aria-label="Copy Link"
+        className="flex items-center gap-1.5 px-3 min-h-[44px] rounded-lg text-xs font-medium text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-accent dark:hover:text-gold-accent bg-gold-light-bg-tertiary dark:bg-gold-accent-muted border border-gold-light-border dark:border-gold-border hover:border-gold-light-accent dark:hover:border-gold-accent transition-all disabled:opacity-60 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent"
+        aria-label={copied ? 'Link copied' : 'Copy share link'}
       >
         {copied ? (
           <>
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-emerald-400">Copied!</span>
+            <Check className="w-3.5 h-3.5 text-gold-light-accent dark:text-gold-accent" />
+            <span className="text-gold-light-accent dark:text-gold-accent">Copied!</span>
           </>
         ) : (
           <>
@@ -62,7 +62,7 @@ export default function CopyLinkButton({ shareUrl, isPublic }) {
             readOnly
             value={shareUrl}
             onClick={(e) => e.target.select()}
-            className="text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-slate-300 select-all w-64 focus:outline-none focus:border-violet-500"
+            className="text-xs bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border dark:border-gold-border rounded px-2 py-1 text-gold-light-text-secondary dark:text-gold-text-secondary select-all w-64 focus:outline-none focus:border-gold-light-accent dark:focus:border-gold-accent"
             aria-label="Share URL"
           />
         </div>

@@ -30,66 +30,66 @@ export default function ProcessingStats({ result }) {
   if (!hasCostData) return null;
 
   return (
-    <div className="bg-dark-surface border border-dark-border rounded-2xl overflow-hidden">
+    <div className="bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border rounded-2xl overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary hover:bg-gold-light-bg-tertiary dark:hover:bg-gold-bg-tertiary transition-colors"
       >
         <span className="flex items-center gap-2">
-          <DollarSign className="w-4 h-4 text-violet-400" />
+          <DollarSign className="w-4 h-4 text-gold-light-accent dark:text-gold-accent" />
           Processing Stats & Cost
         </span>
         {open ? (
-          <ChevronDown className="w-4 h-4 text-slate-500" />
+          <ChevronDown className="w-4 h-4 text-gold-light-text-muted dark:text-gold-text-muted" />
         ) : (
-          <ChevronRight className="w-4 h-4 text-slate-500" />
+          <ChevronRight className="w-4 h-4 text-gold-light-text-muted dark:text-gold-text-muted" />
         )}
       </button>
 
       {open && (
-        <div className="px-5 pb-5 pt-1 border-t border-dark-border grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="px-5 pb-5 pt-1 border-t border-gold-light-border dark:border-gold-border grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Cost Breakdown */}
-          <div className="bg-black/20 border border-white/5 rounded-xl p-4">
-            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+          <div className="bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border-subtle dark:border-gold-border-subtle rounded-xl p-4">
+            <h4 className="text-xs font-semibold text-gold-light-text-muted dark:text-gold-text-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <DollarSign className="w-3.5 h-3.5" /> AI Cost Breakdown
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">Speech-to-Text</span>
-                <span className="text-slate-200 font-mono">{fmt(result?.sttEstimatedCostUsd)}</span>
+                <span className="text-gold-light-text-secondary dark:text-gold-text-secondary">Speech-to-Text</span>
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-mono">{fmt(result?.sttEstimatedCostUsd)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Video Intelligence</span>
-                <span className="text-slate-200 font-mono">{fmt(result?.viEstimatedCostUsd)}</span>
+                <span className="text-gold-light-text-secondary dark:text-gold-text-secondary">Video Intelligence</span>
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-mono">{fmt(result?.viEstimatedCostUsd)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Gemini AI</span>
-                <span className="text-slate-200 font-mono">{fmt(result?.geminiEstimatedCostUsd)}</span>
+                <span className="text-gold-light-text-secondary dark:text-gold-text-secondary">Gemini AI</span>
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-mono">{fmt(result?.geminiEstimatedCostUsd)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-white/10">
-                <span className="text-slate-200 font-semibold">Total</span>
-                <span className="text-violet-400 font-mono font-bold">{fmt(result?.totalEstimatedCostUsd)}</span>
+              <div className="flex justify-between pt-2 border-t border-gold-light-border dark:border-gold-border">
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-semibold">Total</span>
+                <span className="text-gold-light-accent dark:text-gold-accent font-mono font-bold">{fmt(result?.totalEstimatedCostUsd)}</span>
               </div>
             </div>
           </div>
 
           {/* Token Usage */}
-          <div className="bg-black/20 border border-white/5 rounded-xl p-4">
-            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+          <div className="bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border-subtle dark:border-gold-border-subtle rounded-xl p-4">
+            <h4 className="text-xs font-semibold text-gold-light-text-muted dark:text-gold-text-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Cpu className="w-3.5 h-3.5" /> Gemini Token Usage
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">Input tokens</span>
-                <span className="text-slate-200 font-mono">{fmtNum(result?.geminiInputTokens)}</span>
+                <span className="text-gold-light-text-secondary dark:text-gold-text-secondary">Input tokens</span>
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-mono">{fmtNum(result?.geminiInputTokens)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Output tokens</span>
-                <span className="text-slate-200 font-mono">{fmtNum(result?.geminiOutputTokens)}</span>
+                <span className="text-gold-light-text-secondary dark:text-gold-text-secondary">Output tokens</span>
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-mono">{fmtNum(result?.geminiOutputTokens)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-white/10">
-                <span className="text-slate-200 font-semibold">Total tokens</span>
-                <span className="text-slate-200 font-mono font-bold">
+              <div className="flex justify-between pt-2 border-t border-gold-light-border dark:border-gold-border">
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-semibold">Total tokens</span>
+                <span className="text-gold-light-accent dark:text-gold-accent font-mono font-bold">
                   {result?.geminiInputTokens != null && result?.geminiOutputTokens != null
                     ? fmtNum(result.geminiInputTokens + result.geminiOutputTokens)
                     : '—'}
@@ -99,23 +99,23 @@ export default function ProcessingStats({ result }) {
           </div>
 
           {/* Duration */}
-          <div className="bg-black/20 border border-white/5 rounded-xl p-4">
-            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+          <div className="bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border-subtle dark:border-gold-border-subtle rounded-xl p-4">
+            <h4 className="text-xs font-semibold text-gold-light-text-muted dark:text-gold-text-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5" /> Audio / Video Duration
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">STT audio</span>
-                <span className="text-slate-200 font-mono">{fmtMin(result?.sttAudioMinutes)}</span>
+                <span className="text-gold-light-text-secondary dark:text-gold-text-secondary">STT audio</span>
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-mono">{fmtMin(result?.sttAudioMinutes)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">VI video</span>
-                <span className="text-slate-200 font-mono">{fmtMin(result?.viVideoMinutes)}</span>
+                <span className="text-gold-light-text-secondary dark:text-gold-text-secondary">VI video</span>
+                <span className="text-gold-light-text-primary dark:text-gold-text-primary font-mono">{fmtMin(result?.viVideoMinutes)}</span>
               </div>
               {result?.processingTime && (
-                <div className="flex justify-between pt-2 border-t border-white/10">
-                  <span className="text-slate-200 font-semibold">Processing time</span>
-                  <span className="text-slate-200 font-mono font-bold">{result.processingTime}s</span>
+                <div className="flex justify-between pt-2 border-t border-gold-light-border dark:border-gold-border">
+                  <span className="text-gold-light-text-primary dark:text-gold-text-primary font-semibold">Processing time</span>
+                  <span className="text-gold-light-accent dark:text-gold-accent font-mono font-bold">{result.processingTime}s</span>
                 </div>
               )}
             </div>

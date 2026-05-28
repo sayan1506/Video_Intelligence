@@ -10,6 +10,10 @@ vi.mock('../services/api.js', () => ({
 }));
 
 // Mock child components to isolate SharePage logic
+vi.mock('../components/ThemeToggle', () => ({
+  default: () => <button data-testid="theme-toggle">ThemeToggle</button>,
+}));
+
 vi.mock('../components/VideoPlayer', () => ({
   default: ({ videoUrl }) => <div data-testid="video-player">VideoPlayer: {videoUrl}</div>,
 }));

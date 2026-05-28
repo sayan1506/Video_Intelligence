@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Upload, AlertCircle, Film, X, Zap, CheckCircle, Loader2, LayoutDashboard } from 'lucide-react';
 import { getUploadUrl, uploadToGcs, confirmUpload } from '../services/api';
+import ThemeToggle from '../components/ThemeToggle';
+import UploadDropzone from '../components/UploadDropzone';
 
 const MAX_FILE_SIZE_MB = 2048;
 
@@ -121,29 +123,34 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-base text-slate-100 font-sans flex flex-col">
+    <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans flex flex-col transition-colors">
       {/* Navbar */}
-      <nav className="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-dark-base">
-        <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <Zap className="w-6 h-6 text-violet-500" fill="currentColor" />
-          <span>VidIQ</span>
+      <nav className="border-b border-gold-light-border dark:border-gold-border px-6 py-4 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2">
+          <span className="font-display text-2xl font-bold tracking-tight text-gold-light-text-primary dark:text-gold-text-primary">VidIQ</span>
         </Link>
-        <Link
-          to="/dashboard"
-          className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          Dashboard
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2 text-sm text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-accent dark:hover:text-gold-accent transition-colors"
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            Dashboard
+          </Link>
+          <ThemeToggle />
+        </div>
       </nav>
 
+      {/* Gold string separator */}
+      <div className="h-px w-full bg-gold-light-accent dark:bg-gold-accent" />
+
       <main className="flex-1 flex items-center justify-center p-6 animate-fade-in">
-        <div className="w-full max-w-[600px] bg-dark-surface border border-dark-border rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div className="w-full max-w-[600px] bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border border-t-2 border-t-gold-light-accent dark:border-t-gold-accent rounded-3xl p-8 shadow-2xl relative overflow-hidden">
 
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold tracking-tight mb-2">Upload Your Video</h1>
-            <p className="text-slate-400 text-sm">MP4, MOV or AVI &middot; Max {MAX_FILE_SIZE_MB}MB</p>
+            <h1 className="text-2xl font-bold tracking-tight mb-2 text-gold-light-text-primary dark:text-gold-text-primary">Upload Your Video</h1>
+            <p className="text-gold-light-text-secondary dark:text-gold-text-secondary text-sm">MP4, MOV or AVI &middot; Max {MAX_FILE_SIZE_MB}MB</p>
           </div>
 
           {/* Error Banner */}
@@ -158,39 +165,29 @@ export default function UploadPage() {
           {uploadState === 'idle' && (
             <>
               {!file ? (
-                <div
-                  className="border-2 border-dashed border-white/20 hover:border-violet-500/50 hover:bg-violet-500/[0.02] transition-colors rounded-2xl p-8 sm:p-12 text-center cursor-pointer group"
+                <UploadDropzone
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="w-16 h-16 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:bg-violet-500/10 transition-colors">
-                    <Upload className="w-8 h-8 text-violet-400" />
-                  </div>
-                  <p className="text-lg font-medium text-slate-200 mb-1">Drag & drop your video here</p>
-                  <p className="text-sm text-slate-500">or click to browse</p>
-                  <input
-                    type="file"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept="video/mp4,video/quicktime,video/avi,video/x-matroska,.mkv"
-                  />
-                </div>
+                  fileInputRef={fileInputRef}
+                  onFileChange={handleFileChange}
+                  accept="video/mp4,video/quicktime,video/avi,video/x-matroska,.mkv"
+                />
               ) : (
                 <div className="animate-slide-up">
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4 mb-6">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0">
-                      <Film className="w-5 h-5 text-indigo-400" />
+                  <div className="bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border dark:border-gold-border rounded-xl p-4 flex items-center gap-4 mb-6">
+                    <div className="w-10 h-10 rounded-lg bg-gold-accent-muted flex items-center justify-center shrink-0">
+                      <Film className="w-5 h-5 text-gold-light-accent dark:text-gold-accent" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-200 truncate">{file.name}</p>
-                      <p className="text-xs text-slate-500">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                      <p className="text-sm font-medium text-gold-light-text-primary dark:text-gold-text-primary truncate">{file.name}</p>
+                      <p className="text-xs text-gold-light-text-muted dark:text-gold-text-muted">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
                     </div>
                     <button
                       onClick={clearFile}
-                      className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                      className="w-11 h-11 flex items-center justify-center text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent"
                       title="Remove file"
+                      aria-label="Remove file"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -199,7 +196,7 @@ export default function UploadPage() {
                   <button
                     onClick={handleUpload}
                     disabled={uploadState !== 'idle'}
-                    className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-white py-3.5 rounded-xl font-medium text-lg shadow-lg flex items-center justify-center gap-2"
+                    className="w-full bg-gold-light-accent dark:bg-gold-accent hover:bg-gold-light-accent-hover dark:hover:bg-gold-accent-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-white py-3.5 rounded-xl font-medium text-lg shadow-lg flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent focus-visible:ring-offset-2 focus-visible:ring-offset-gold-light-bg-secondary dark:focus-visible:ring-offset-gold-bg-secondary"
                   >
                     <>Upload &amp; Analyse</>
                   </button>
@@ -210,21 +207,21 @@ export default function UploadPage() {
 
           {/* State 2 & 3: Uploading & Redirecting */}
           {(uploadState === 'uploading' || uploadState === 'redirecting') && (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 animate-slide-up text-center">
+            <div className="bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border dark:border-gold-border rounded-2xl p-6 animate-slide-up text-center">
               {uploadState === 'uploading' ? (
                 <>
-                  <p className="text-sm font-medium text-slate-300 mb-6 truncate">{file?.name}</p>
+                  <p className="text-sm font-medium text-gold-light-text-secondary dark:text-gold-text-secondary mb-6 truncate">{file?.name}</p>
 
-                  <div className="h-2 w-full bg-dark-base rounded-full overflow-hidden mb-4 border border-white/5">
+                  <div className="h-2 w-full bg-gold-light-bg-primary dark:bg-gold-bg-primary rounded-full overflow-hidden mb-4 border border-gold-light-border-subtle dark:border-gold-border-subtle">
                     <div
-                      className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500 ease-out"
+                      className="h-full bg-gold-light-accent dark:bg-gold-accent transition-all duration-500 ease-out"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400 font-medium">{uploadStepText}</span>
-                    <span className="text-indigo-400 font-bold">{uploadProgress}%</span>
+                    <span className="text-gold-light-text-secondary dark:text-gold-text-secondary font-medium">{uploadStepText}</span>
+                    <span className="text-gold-light-accent dark:text-gold-accent font-bold">{uploadProgress}%</span>
                   </div>
                 </>
               ) : (
@@ -232,8 +229,8 @@ export default function UploadPage() {
                   <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4 text-emerald-400">
                     <CheckCircle className="w-8 h-8" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-100 mb-1">Upload complete!</h3>
-                  <p className="text-sm text-slate-400">Redirecting to status page...</p>
+                  <h3 className="text-lg font-bold text-gold-light-text-primary dark:text-gold-text-primary mb-1">Upload complete!</h3>
+                  <p className="text-sm text-gold-light-text-secondary dark:text-gold-text-secondary">Redirecting to status page...</p>
                 </div>
               )}
             </div>

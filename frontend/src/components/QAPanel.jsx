@@ -39,20 +39,20 @@ export default function QAPanel({ jobId, onSeek }) {
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 mt-4">
+    <div className="rounded-lg border-t-2 border-t-gold-light-accent dark:border-t-gold-accent border border-gold-light-border dark:border-gold-border bg-gold-light-bg-secondary dark:bg-gold-bg-secondary mt-4">
       {/* Header — always visible */}
       <button
         onClick={() => setIsOpen((o) => !o)}
         className="w-full flex items-center justify-between px-5 py-4 text-left"
         aria-expanded={isOpen}
       >
-        <span className="font-semibold text-slate-200 flex items-center gap-2">
+        <span className="font-semibold text-gold-light-text-primary dark:text-gold-text-primary flex items-center gap-2">
           <span>💬</span> Ask about this video
-          <span className="text-xs font-normal text-violet-400 border border-violet-400/40 rounded px-1.5 py-0.5">
+          <span className="text-xs font-normal text-gold-light-accent dark:text-gold-accent border border-gold-light-accent/40 dark:border-gold-accent/40 rounded px-1.5 py-0.5">
             Pro
           </span>
         </span>
-        <span className="text-slate-500 text-sm">{isOpen ? '▲' : '▼'}</span>
+        <span className="text-gold-light-text-muted dark:text-gold-text-muted text-sm">{isOpen ? '▲' : '▼'}</span>
       </button>
 
       {/* Collapsible body */}
@@ -66,14 +66,14 @@ export default function QAPanel({ jobId, onSeek }) {
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               placeholder="e.g. What did the speaker say about pricing?"
-              className="flex-1 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-colors"
+              className="flex-1 rounded-lg bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border dark:border-gold-border px-3 py-2 text-sm text-gold-light-text-primary dark:text-gold-text-primary placeholder-gold-light-text-muted dark:placeholder-gold-text-muted focus:outline-none focus:border-gold-light-accent dark:focus:border-gold-accent transition-colors"
               disabled={loading}
               aria-label="Ask a question about this video"
             />
             <button
               onClick={handleSubmit}
               disabled={loading || !question.trim()}
-              className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+              className="px-4 py-2 rounded-lg bg-gold-light-accent dark:bg-gold-accent hover:bg-gold-light-accent-hover dark:hover:bg-gold-accent-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
             >
               {loading ? '…' : 'Ask'}
             </button>
@@ -85,11 +85,11 @@ export default function QAPanel({ jobId, onSeek }) {
           )}
 
           {error === 'upgrade' && (
-            <div className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+            <div className="text-sm text-gold-light-accent dark:text-gold-accent bg-gold-accent-muted border border-gold-light-border dark:border-gold-border rounded-lg px-3 py-2">
               Q&A is a Pro feature.{' '}
               <a
                 href="/billing"
-                className="underline text-violet-400 hover:text-violet-300"
+                className="underline text-gold-light-accent dark:text-gold-accent hover:text-gold-light-accent-hover dark:hover:text-gold-accent-hover"
               >
                 Upgrade your plan
               </a>{' '}
@@ -100,23 +100,23 @@ export default function QAPanel({ jobId, onSeek }) {
           {/* Answer */}
           {answer && (
             <div className="space-y-3">
-              <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+              <div className="text-sm text-gold-light-text-secondary dark:text-gold-text-secondary leading-relaxed whitespace-pre-wrap">
                 {answer}
               </div>
 
               {/* Sources */}
               {sources.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
+                  <p className="text-xs text-gold-light-text-muted dark:text-gold-text-muted font-medium uppercase tracking-wide">
                     Sources
                   </p>
                   {sources.map((src, i) => (
                     <button
                       key={i}
                       onClick={() => onSeek?.(src.startTime)}
-                      className="w-full text-left rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-xs text-slate-400 hover:border-violet-500/50 hover:text-slate-300 transition-colors"
+                      className="w-full text-left rounded-lg bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border dark:border-gold-border px-3 py-2 text-xs text-gold-light-text-secondary dark:text-gold-text-secondary hover:border-gold-light-accent/50 dark:hover:border-gold-accent/50 hover:text-gold-light-text-primary dark:hover:text-gold-text-primary transition-colors"
                     >
-                      <span className="text-violet-400 font-mono mr-2">
+                      <span className="text-gold-light-accent dark:text-gold-accent font-mono mr-2">
                         {formatTime(src.startTime)} – {formatTime(src.endTime)}
                       </span>
                       {src.snippet}

@@ -66,29 +66,29 @@ export default function TranscriptPanel({ transcript, translatedTranscript, dete
   const isEmpty = !displayedTranscript || displayedTranscript.length === 0;
 
   return (
-    <div className="bg-dark-surface border border-dark-border rounded-2xl h-full flex flex-col min-h-0 relative">
+    <div className="bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border-t-2 border-t-gold-light-accent dark:border-t-gold-accent border border-gold-light-border dark:border-gold-border rounded-lg h-full flex flex-col min-h-0 relative">
       
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-dark-surface/90 backdrop-blur-md border-b border-dark-border p-4 rounded-t-2xl flex items-center justify-between gap-4">
+      <div className="sticky top-0 z-10 bg-gold-light-bg-secondary/90 dark:bg-gold-bg-secondary/90 backdrop-blur-md border-b border-gold-light-border dark:border-gold-border p-4 rounded-t-lg flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gold-light-text-muted dark:text-gold-text-muted" />
           <input 
             type="text"
             placeholder="Search transcript..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-sans"
+            className="w-full bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border dark:border-gold-border rounded-lg pl-10 pr-4 py-2 text-sm text-gold-light-text-primary dark:text-gold-text-primary placeholder:text-gold-light-text-muted dark:placeholder:text-gold-text-muted focus:outline-none focus:border-gold-light-accent dark:focus:border-gold-accent focus:ring-1 focus:ring-gold-light-accent dark:focus:ring-gold-accent transition-all font-sans"
           />
         </div>
         {showToggle && (
-          <div className="flex items-center bg-black/30 border border-white/10 rounded-lg p-0.5">
+          <div className="flex items-center bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border dark:border-gold-border rounded-lg p-0.5">
             <button
               onClick={() => setActiveView('original')}
               title={`Show original${detectedLanguage ? ` (${detectedLanguage})` : ''}`}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 activeView === 'original'
-                  ? 'bg-violet-500/80 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-gold-light-accent dark:bg-gold-accent text-white shadow-sm'
+                  : 'text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary'
               }`}
             >
               Original
@@ -98,15 +98,15 @@ export default function TranscriptPanel({ transcript, translatedTranscript, dete
               title="Show English translation"
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 activeView === 'english'
-                  ? 'bg-violet-500/80 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-gold-light-accent dark:bg-gold-accent text-white shadow-sm'
+                  : 'text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary'
               }`}
             >
               English
             </button>
           </div>
         )}
-        <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
+        <div className="text-xs text-gold-light-text-muted dark:text-gold-text-muted font-medium whitespace-nowrap">
           {displayedTranscript?.length || 0} words
         </div>
         {!hideExports && displayedTranscript && displayedTranscript.length > 0 && (
@@ -114,7 +114,7 @@ export default function TranscriptPanel({ transcript, translatedTranscript, dete
             <button
               onClick={() => exportSrt(displayedTranscript, filenameBase)}
               title="Download SRT subtitles"
-              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-400 hover:text-white bg-black/30 hover:bg-white/10 border border-white/10 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary hover:bg-gold-light-border dark:hover:bg-gold-border border border-gold-light-border dark:border-gold-border rounded-md transition-colors"
             >
               <Download className="w-3 h-3" />
               SRT
@@ -122,7 +122,7 @@ export default function TranscriptPanel({ transcript, translatedTranscript, dete
             <button
               onClick={() => exportVtt(displayedTranscript, filenameBase)}
               title="Download VTT subtitles"
-              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-400 hover:text-white bg-black/30 hover:bg-white/10 border border-white/10 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary hover:bg-gold-light-border dark:hover:bg-gold-border border border-gold-light-border dark:border-gold-border rounded-md transition-colors"
             >
               <Download className="w-3 h-3" />
               VTT
@@ -134,10 +134,10 @@ export default function TranscriptPanel({ transcript, translatedTranscript, dete
       {/* Transcript Text Flow */}
       <div ref={scrollContainerRef} className="p-5 overflow-y-auto relative flex-1 custom-scrollbar">
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+          <div className="flex flex-col items-center justify-center h-64 text-gold-light-text-muted dark:text-gold-text-muted">
             <FileX className="w-10 h-10 mb-3 opacity-50" />
             <p className="text-sm">No transcript available.</p>
-            <p className="text-xs mt-1 text-slate-600">Audio may not have been detected.</p>
+            <p className="text-xs mt-1 text-gold-light-text-muted dark:text-gold-text-muted">Audio may not have been detected.</p>
           </div>
         ) : (
           <div className="flex flex-wrap gap-x-1 gap-y-1 content-start font-sans leading-relaxed">
@@ -160,12 +160,12 @@ export default function TranscriptPanel({ transcript, translatedTranscript, dete
                     className={`
                       cursor-pointer rounded px-0.5 py-0.5 text-sm transition-colors duration-150 inline-block
                       ${isActive
-                        ? 'bg-violet-500/80 text-white font-medium shadow-sm'
+                        ? 'bg-gold-light-accent dark:bg-gold-accent text-white font-medium shadow-sm'
                         : isSearchMatch
                         ? 'bg-amber-500/40 text-amber-100 font-medium'
                         : wordObj.speaker > 0
-                        ? `${SPEAKER_COLORS[wordObj.speaker] || ''} hover:bg-white/10`
-                        : 'text-slate-300 hover:text-white hover:bg-white/10'
+                        ? `${SPEAKER_COLORS[wordObj.speaker] || ''} hover:bg-gold-light-border dark:hover:bg-gold-border`
+                        : 'text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary hover:bg-gold-light-border dark:hover:bg-gold-border'
                       }
                     `}
                   >

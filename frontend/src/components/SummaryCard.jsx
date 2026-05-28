@@ -17,7 +17,7 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
   const badge = sentimentConfig[sentiment ?? 'neutral'];
 
   return (
-    <div className="bg-dark-surface border border-dark-border rounded-2xl p-6 flex flex-col gap-6">
+    <div className="bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border-t-2 border-t-gold-light-accent dark:border-t-gold-accent border border-gold-light-border dark:border-gold-border rounded-lg p-6 flex flex-col gap-6">
       
       {/* Sentiment Badge */}
       <div className="flex items-center justify-between">
@@ -28,7 +28,7 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
           <button
             title="Export PDF summary"
             onClick={() => exportPdf({ summary, chapters, highlights, actionItems, sentiment }, filenameBase)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-dark-border hover:border-slate-500 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary hover:bg-gold-light-border dark:hover:bg-gold-border border border-gold-light-border dark:border-gold-border hover:border-gold-light-accent dark:hover:border-gold-accent transition-all"
           >
             <FileDown className="w-4 h-4" />
             Export PDF
@@ -38,19 +38,19 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
 
       {/* Summary Paragraph */}
       <div>
-        <h3 className="text-lg font-bold mb-2">Summary</h3>
+        <h3 className="text-lg font-bold mb-2 text-gold-light-text-primary dark:text-gold-text-primary">Summary</h3>
         {summary ? (
-          <p className="text-slate-300 leading-relaxed text-sm">{summary}</p>
+          <p className="text-gold-light-text-secondary dark:text-gold-text-secondary leading-relaxed text-sm">{summary}</p>
         ) : (
-          <p className="text-slate-500 italic text-sm">No summary available.</p>
+          <p className="text-gold-light-text-muted dark:text-gold-text-muted italic text-sm">No summary available.</p>
         )}
       </div>
 
       {/* Chapters */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <BookOpen className="w-5 h-5 text-violet-400" />
-          <h3 className="text-lg font-bold">Chapters</h3>
+          <BookOpen className="w-5 h-5 text-gold-light-accent dark:text-gold-accent" />
+          <h3 className="text-lg font-bold text-gold-light-text-primary dark:text-gold-text-primary">Chapters</h3>
         </div>
         {chapters && chapters.length > 0 ? (
           <div className="flex flex-col gap-2">
@@ -58,25 +58,25 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
               <button
                 key={i}
                 onClick={() => seekTo(chapter.startTime)}
-                className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 hover:border-l-2 hover:border-violet-500 transition-all text-left group border border-transparent"
+                className="flex items-center gap-4 p-3 rounded-lg bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary hover:bg-gold-light-border dark:hover:bg-gold-border hover:border-l-2 hover:border-gold-light-accent dark:hover:border-gold-accent transition-all text-left group border border-transparent"
               >
-                <span className="font-mono text-sm text-violet-400 group-hover:text-violet-300 shrink-0">
+                <span className="font-mono text-sm text-gold-light-accent dark:text-gold-accent group-hover:text-gold-light-accent-hover dark:group-hover:text-gold-accent-hover shrink-0">
                   {formatTime(chapter.startTime)}
                 </span>
-                <span className="text-sm font-medium text-slate-200">{chapter.title}</span>
+                <span className="text-sm font-medium text-gold-light-text-primary dark:text-gold-text-primary">{chapter.title}</span>
               </button>
             ))}
           </div>
         ) : (
-          <p className="text-slate-500 text-sm">No chapters detected.</p>
+          <p className="text-gold-light-text-muted dark:text-gold-text-muted text-sm">No chapters detected.</p>
         )}
       </div>
 
       {/* Highlights */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Star className="w-5 h-5 text-amber-400" />
-          <h3 className="text-lg font-bold">Key Highlights</h3>
+          <Star className="w-5 h-5 text-gold-light-accent dark:text-gold-accent" />
+          <h3 className="text-lg font-bold text-gold-light-text-primary dark:text-gold-text-primary">Key Highlights</h3>
         </div>
         {highlights && highlights.length > 0 ? (
           <div className="flex flex-col gap-3">
@@ -84,17 +84,17 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
               <div 
                 key={i}
                 onClick={() => seekTo(highlight.timestamp)}
-                className="flex items-start gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                className="flex items-start gap-4 p-3 rounded-lg hover:bg-gold-light-bg-tertiary dark:hover:bg-gold-bg-tertiary transition-colors cursor-pointer"
               >
-              <span className="shrink-0 mt-0.5 px-2 py-1 rounded-md bg-amber-500/20 text-amber-300 text-xs font-mono">
+              <span className="shrink-0 mt-0.5 px-2 py-1 rounded-md bg-gold-accent-muted text-gold-light-accent dark:text-gold-accent text-xs font-mono">
                 {formatTime(highlight.timestamp)}
               </span>
-              <p className="text-sm text-slate-300 leading-relaxed">{highlight.description}</p>
+              <p className="text-sm text-gold-light-text-secondary dark:text-gold-text-secondary leading-relaxed">{highlight.description}</p>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-slate-500 text-sm">No highlights detected.</p>
+          <p className="text-gold-light-text-muted dark:text-gold-text-muted text-sm">No highlights detected.</p>
         )}
       </div>
 
@@ -102,10 +102,10 @@ export default function SummaryCard({ summary, sentiment, chapters, highlights, 
       {actionItems && actionItems.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <CheckSquare className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-lg font-bold">Action Items</h3>
+            <CheckSquare className="w-5 h-5 text-gold-light-accent dark:text-gold-accent" />
+            <h3 className="text-lg font-bold text-gold-light-text-primary dark:text-gold-text-primary">Action Items</h3>
           </div>
-          <ul className="list-disc list-inside flex flex-col gap-2 text-sm text-slate-300 pl-1">
+          <ul className="list-disc list-inside flex flex-col gap-2 text-sm text-gold-light-text-secondary dark:text-gold-text-secondary pl-1">
             {actionItems.map((item, i) => (
               <li key={i} className="leading-relaxed">{item}</li>
             ))}

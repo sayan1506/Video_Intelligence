@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Zap, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { getResult, getVideoUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -12,9 +12,10 @@ import ProcessingStats from '../components/ProcessingStats';
 import QAPanel from '../components/QAPanel';
 import ShareToggle from '../components/ShareToggle';
 import CopyLinkButton from '../components/CopyLinkButton';
+import ThemeToggle from '../components/ThemeToggle';
 
 const SkeletonCard = ({ className }) => (
-  <div className={`bg-white/5 border border-white/10 rounded-2xl animate-pulse ${className}`} />
+  <div className={`bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border rounded-2xl animate-pulse ${className}`} />
 );
 
 export default function ResultPage() {
@@ -102,7 +103,7 @@ export default function ResultPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-dark-base text-slate-100 font-sans">
+      <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans">
         <NavHeader />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
           <div className="flex flex-col gap-4">
@@ -120,21 +121,21 @@ export default function ResultPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-dark-base flex items-center justify-center">
-        <div className="text-center max-w-md p-8 bg-white/5 border border-white/10 rounded-2xl">
+      <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary flex items-center justify-center">
+        <div className="text-center max-w-md p-8 bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border rounded-2xl">
           <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-100 mb-2">Failed to load results</h2>
-          <p className="text-slate-400 text-sm mb-6">{error}</p>
+          <h2 className="text-xl font-bold text-gold-light-text-primary dark:text-gold-text-primary mb-2">Failed to load results</h2>
+          <p className="text-gold-light-text-secondary dark:text-gold-text-secondary text-sm mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => navigate('/upload')}
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm transition-colors"
+              className="px-4 py-2 bg-gold-light-accent dark:bg-gold-accent hover:bg-gold-light-accent-hover dark:hover:bg-gold-accent-hover text-white rounded-xl text-sm transition-colors"
             >
               New Upload
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-300 rounded-xl text-sm transition-colors"
+              className="px-4 py-2 bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary hover:bg-gold-light-border dark:hover:bg-gold-border text-gold-light-text-secondary dark:text-gold-text-secondary rounded-xl text-sm transition-colors"
             >
               Retry
             </button>
@@ -146,17 +147,17 @@ export default function ResultPage() {
 
   if (result && result.status !== 'completed') {
     return (
-      <div className="min-h-screen bg-dark-base text-slate-100 font-sans flex flex-col">
+      <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans flex flex-col">
         <NavHeader />
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-[500px] bg-dark-surface border border-yellow-500/20 rounded-3xl p-8 text-center text-yellow-100">
-            <h2 className="text-xl font-bold mb-2">Analysis Not Complete</h2>
-            <p className="text-yellow-100/70 mb-8 mt-2 text-sm leading-relaxed">
+          <div className="w-full max-w-[500px] bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border rounded-3xl p-8 text-center">
+            <h2 className="text-xl font-bold text-gold-light-accent dark:text-gold-accent mb-2">Analysis Not Complete</h2>
+            <p className="text-gold-light-text-secondary dark:text-gold-text-secondary mb-8 mt-2 text-sm leading-relaxed">
               This job is not yet complete. Please check the status page.
             </p>
             <Link 
               to={`/status/${jobId}`}
-              className="px-6 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 rounded-xl font-medium transition-colors inline-block"
+              className="px-6 py-3 bg-gold-accent-muted hover:bg-gold-light-accent dark:hover:bg-gold-accent text-gold-light-accent dark:text-gold-accent hover:text-white rounded-xl font-medium transition-colors inline-block"
             >
               Go to Status
             </Link>
@@ -167,15 +168,14 @@ export default function ResultPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-base text-slate-100 font-sans flex flex-col overflow-hidden">
-      <header className="border-b border-white/5 px-6 py-4 flex flex-wrap items-center justify-between bg-dark-base shrink-0">
+    <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans flex flex-col overflow-hidden">
+      <header className="border-b border-gold-light-border dark:border-gold-border px-6 py-4 flex flex-wrap items-center justify-between bg-gold-light-bg-primary dark:bg-gold-bg-primary shrink-0">
         <div className="flex items-center gap-6">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-             <Zap className="w-6 h-6 text-violet-500" fill="currentColor" />
-             <span>VidIQ</span>
+             <span className="font-display text-gold-light-text-primary dark:text-gold-text-primary">VidIQ</span>
           </Link>
-          <div className="hidden md:flex items-center gap-2 text-sm text-slate-400 border-l border-white/10 pl-6">
-            <span className="font-mono bg-white/5 px-2 py-1 rounded truncate max-w-[150px] sm:max-w-none">Job: {jobId}</span>
+          <div className="hidden md:flex items-center gap-2 text-sm text-gold-light-text-secondary dark:text-gold-text-secondary border-l border-gold-light-border dark:border-gold-border pl-6">
+            <span className="font-mono bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary px-2 py-1 rounded truncate max-w-[150px] sm:max-w-none">Job: {jobId}</span>
             {result?.processingTime && (
               <span>{" \u00B7 "} Processed in {formatDuration(result.processingTime)}</span>
             )}
@@ -188,9 +188,10 @@ export default function ResultPage() {
               <CopyLinkButton shareUrl={shareUrl} isPublic={isPublic} />
             </div>
           )}
-          <Link to="/upload" className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+          <Link to="/upload" className="hidden sm:flex items-center gap-2 text-sm text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-accent dark:hover:text-gold-accent transition-colors">
             <ArrowLeft className="w-4 h-4" /> New Upload
           </Link>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -264,11 +265,11 @@ export default function ResultPage() {
 
 function NavHeader() {
   return (
-    <nav className="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-dark-base shrink-0">
+    <nav className="border-b border-gold-light-border dark:border-gold-border px-6 py-4 flex items-center justify-between bg-gold-light-bg-primary dark:bg-gold-bg-primary shrink-0">
       <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-        <Zap className="w-6 h-6 text-violet-500" fill="currentColor" />
-        <span>VidIQ</span>
+        <span className="font-display text-gold-light-text-primary dark:text-gold-text-primary">VidIQ</span>
       </Link>
+      <ThemeToggle />
     </nav>
   );
 }

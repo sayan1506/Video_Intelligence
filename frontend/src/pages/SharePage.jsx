@@ -7,11 +7,12 @@ import VideoPlayer from '../components/VideoPlayer';
 import SummaryCard from '../components/SummaryCard';
 import TranscriptPanel from '../components/TranscriptPanel';
 import ScenePanel from '../components/ScenePanel';
+import ThemeToggle from '../components/ThemeToggle';
 
 const FETCH_TIMEOUT_MS = 30000;
 
 const SkeletonCard = ({ className }) => (
-  <div className={`bg-white/5 border border-white/10 rounded-2xl animate-pulse ${className}`} />
+  <div className={`bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border border-t-2 border-t-gold-light-accent dark:border-t-gold-accent rounded-2xl animate-pulse ${className}`} />
 );
 
 export default function SharePage() {
@@ -101,12 +102,12 @@ export default function SharePage() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-dark-base text-slate-100 font-sans">
+      <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans transition-colors">
         <ShareNavHeader />
         <div className="flex items-center justify-center py-8">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-10 h-10 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-slate-400 text-sm">Loading shared content...</p>
+            <div className="w-10 h-10 border-2 border-gold-light-accent dark:border-gold-accent border-t-transparent rounded-full animate-spin" />
+            <p className="text-gold-light-text-secondary dark:text-gold-text-secondary text-sm">Loading shared content...</p>
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
@@ -126,18 +127,18 @@ export default function SharePage() {
   // 404 Not Found state
   if (notFound) {
     return (
-      <div className="min-h-screen bg-dark-base text-slate-100 font-sans flex flex-col">
+      <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans flex flex-col transition-colors">
         <ShareNavHeader />
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center max-w-md p-8 bg-white/5 border border-white/10 rounded-2xl">
-            <FileQuestion className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-slate-100 mb-2">Not Found</h2>
-            <p className="text-slate-400 text-sm mb-6">
+          <div className="text-center max-w-md p-8 bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border border-t-2 border-t-gold-light-accent dark:border-t-gold-accent rounded-2xl">
+            <FileQuestion className="w-12 h-12 text-gold-light-accent dark:text-gold-accent mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gold-light-text-primary dark:text-gold-text-primary mb-2">Not Found</h2>
+            <p className="text-gold-light-text-secondary dark:text-gold-text-secondary text-sm mb-6">
               This shared content is no longer available or does not exist.
             </p>
             <Link
               to="/"
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm transition-colors inline-block"
+              className="px-4 py-2 bg-gold-light-accent dark:bg-gold-accent hover:bg-gold-light-accent-hover dark:hover:bg-gold-accent-hover text-white rounded-xl text-sm transition-colors inline-block"
             >
               Go to Home
             </Link>
@@ -150,16 +151,16 @@ export default function SharePage() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-dark-base text-slate-100 font-sans flex flex-col">
+      <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans flex flex-col transition-colors">
         <ShareNavHeader />
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center max-w-md p-8 bg-white/5 border border-white/10 rounded-2xl">
-            <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-slate-100 mb-2">Failed to load content</h2>
-            <p className="text-slate-400 text-sm mb-6">{error}</p>
+          <div className="text-center max-w-md p-8 bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border border-t-2 border-t-gold-light-accent dark:border-t-gold-accent rounded-2xl">
+            <AlertTriangle className="w-12 h-12 text-gold-light-accent dark:text-gold-accent mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gold-light-text-primary dark:text-gold-text-primary mb-2">Failed to load content</h2>
+            <p className="text-gold-light-text-secondary dark:text-gold-text-secondary text-sm mb-6">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm transition-colors"
+              className="px-4 py-2 bg-gold-light-accent dark:bg-gold-accent hover:bg-gold-light-accent-hover dark:hover:bg-gold-accent-hover text-white rounded-xl text-sm transition-colors"
             >
               Retry
             </button>
@@ -171,7 +172,7 @@ export default function SharePage() {
 
   // Success — render read-only content
   return (
-    <div className="min-h-screen bg-dark-base text-slate-100 font-sans flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans flex flex-col overflow-hidden transition-colors">
       <ShareNavHeader />
 
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
@@ -240,10 +241,10 @@ export default function SharePage() {
           </div>
 
           {/* CTA — Sign in to analyse your own videos */}
-          <div className="border-t border-white/10 pt-6 pb-4 text-center">
+          <div className="border-t border-gold-light-border dark:border-gold-border pt-6 pb-4 text-center">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gold-light-accent dark:bg-gold-accent hover:bg-gold-light-accent-hover dark:hover:bg-gold-accent-hover text-white rounded-xl font-medium transition-colors"
             >
               <LogIn className="w-4 h-4" />
               Sign in to analyse your own videos
@@ -257,17 +258,19 @@ export default function SharePage() {
 
 function ShareNavHeader() {
   return (
-    <nav className="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-dark-base shrink-0">
+    <nav className="border-b border-gold-light-border dark:border-gold-border px-6 py-4 flex items-center justify-between bg-gold-light-bg-primary dark:bg-gold-bg-primary shrink-0">
       <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-        <Zap className="w-6 h-6 text-violet-500" fill="currentColor" />
-        <span>VidIQ</span>
+        <span className="font-display text-2xl text-gold-light-text-primary dark:text-gold-text-primary">VidIQ</span>
       </Link>
-      <Link
-        to="/"
-        className="text-sm text-slate-400 hover:text-white transition-colors"
-      >
-        Sign in
-      </Link>
+      <div className="flex items-center gap-3">
+        <ThemeToggle />
+        <Link
+          to="/"
+          className="text-sm text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-accent dark:hover:text-gold-accent transition-colors"
+        >
+          Sign in
+        </Link>
+      </div>
     </nav>
   );
 }

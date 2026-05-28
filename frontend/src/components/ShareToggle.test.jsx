@@ -31,7 +31,7 @@ describe('ShareToggle', () => {
 
       const toggle = screen.getByRole('switch');
       expect(toggle).toHaveAttribute('aria-checked', 'false');
-      expect(toggle).toHaveAttribute('aria-label', 'Private');
+      expect(toggle).toHaveAttribute('aria-label', 'Enable public sharing');
     });
 
     it('shows "Public" label and Globe icon when isPublic is true', () => {
@@ -42,7 +42,7 @@ describe('ShareToggle', () => {
 
       const toggle = screen.getByRole('switch');
       expect(toggle).toHaveAttribute('aria-checked', 'true');
-      expect(toggle).toHaveAttribute('aria-label', 'Public');
+      expect(toggle).toHaveAttribute('aria-label', 'Disable public sharing');
     });
   });
 

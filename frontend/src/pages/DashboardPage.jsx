@@ -4,6 +4,7 @@ import { Zap, Plus, LogOut, RefreshCw, Film, AlertCircle, Crown } from 'lucide-r
 import { useAuth } from '../contexts/AuthContext';
 import { getJobs, getQuota } from '../services/api';
 import JobCard from '../components/JobCard';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -49,37 +50,36 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-base text-slate-100 font-sans">
+    <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary font-sans transition-colors">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 backdrop-blur-md bg-dark-base/80 border-b border-white/5 px-6 py-4 flex items-center justify-between">
+      <nav className="sticky top-0 z-50 backdrop-blur-md bg-gold-light-bg-primary/80 dark:bg-gold-bg-primary/80 border-b border-gold-light-border dark:border-gold-border px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <Zap className="w-6 h-6 text-violet-500" fill="currentColor" />
-          <span>VidIQ</span>
+          <span className="font-display text-2xl text-gold-light-text-primary dark:text-gold-text-primary">VidIQ</span>
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* User avatar / email */}
-          <div className="hidden sm:flex items-center gap-2 text-sm text-slate-400">
+          <div className="hidden sm:flex items-center gap-2 text-sm text-gold-light-text-secondary dark:text-gold-text-secondary">
             {user?.photoURL ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName ?? 'User'}
-                className="w-7 h-7 rounded-full border border-white/10"
+                className="w-7 h-7 rounded-full border border-gold-light-border dark:border-gold-border"
               />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-xs font-bold text-violet-400">
+              <div className="w-7 h-7 rounded-full bg-gold-accent-muted dark:bg-gold-accent-muted border border-gold-light-accent dark:border-gold-accent flex items-center justify-center text-xs font-bold text-gold-light-accent dark:text-gold-accent">
                 {(user?.displayName ?? user?.email ?? '?')[0].toUpperCase()}
               </div>
             )}
             <span className="max-w-[160px] truncate">{user?.displayName ?? user?.email}</span>
             {quota.plan === 'pro' ? (
-              <span className="flex items-center gap-1 text-xs font-semibold text-violet-400 bg-violet-500/15 border border-violet-500/20 px-2 py-0.5 rounded-full">
+              <span className="flex items-center gap-1 text-xs font-semibold text-gold-light-accent dark:text-gold-accent bg-gold-accent-muted border border-gold-light-border dark:border-gold-border px-2 py-0.5 rounded-full">
                 <Crown className="w-3 h-3" /> Pro
               </span>
             ) : (
               <Link
                 to="/pricing"
-                className="text-xs font-semibold text-slate-400 hover:text-violet-400 bg-white/5 border border-dark-border hover:border-violet-500/30 px-2 py-0.5 rounded-full transition-colors"
+                className="text-xs font-semibold text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-accent dark:hover:text-gold-accent bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border dark:border-gold-border hover:border-gold-light-accent dark:hover:border-gold-accent px-2 py-0.5 rounded-full transition-colors"
               >
                 Upgrade
               </Link>
@@ -87,25 +87,28 @@ export default function DashboardPage() {
             {user?.uid === import.meta.env.VITE_ADMIN_UID && (
               <Link
                 to="/admin"
-                className="text-xs font-semibold text-slate-500 hover:text-violet-400 transition-colors"
+                className="text-xs font-semibold text-gold-light-text-muted dark:text-gold-text-muted hover:text-gold-light-accent dark:hover:text-gold-accent transition-colors"
               >
                 Admin ↗
               </Link>
             )}
           </div>
 
+          <ThemeToggle />
+
           <button
             onClick={() => navigate('/upload')}
-            className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 transition-all text-white px-4 py-2 rounded-full text-sm font-medium"
+            className="flex items-center gap-2 bg-gold-light-accent dark:bg-gold-accent hover:bg-gold-light-accent-hover dark:hover:bg-gold-accent-hover active:scale-95 transition-all text-white dark:text-gold-bg-primary px-3 sm:px-4 py-2 rounded-full text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent focus-visible:ring-offset-2 focus-visible:ring-offset-gold-light-bg-primary dark:focus-visible:ring-offset-gold-bg-primary"
           >
             <Plus className="w-4 h-4" />
-            New Video
+            <span className="hidden sm:inline">New Video</span>
           </button>
 
           <button
             onClick={handleSignOut}
             title="Sign out"
-            className="p-2 text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors"
+            aria-label="Sign out"
+            className="w-11 h-11 flex items-center justify-center text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary hover:bg-gold-light-bg-tertiary dark:hover:bg-gold-bg-tertiary rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent"
           >
             <LogOut className="w-5 h-5" />
           </button>
@@ -117,11 +120,11 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">My Videos</h1>
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="text-gold-light-text-secondary dark:text-gold-text-secondary text-sm mt-1">
               {jobs.length > 0 ? `${jobs.length} video${jobs.length !== 1 ? 's' : ''}` : 'No videos yet'}
             </p>
             {quota.plan === 'free' && (
-              <p className="text-slate-500 text-xs mt-1">
+              <p className="text-gold-light-text-muted dark:text-gold-text-muted text-xs mt-1">
                 {quotaError ? (
                   <>Could not load quota — try refreshing.</>
                 ) : (
@@ -133,7 +136,7 @@ export default function DashboardPage() {
                   </>
                 )}
                 {' · '}
-                <Link to="/pricing" className="text-violet-400 hover:underline">Upgrade to Pro</Link>
+                <Link to="/pricing" className="text-gold-light-accent dark:text-gold-accent hover:underline">Upgrade to Pro</Link>
               </p>
             )}
           </div>
@@ -142,11 +145,15 @@ export default function DashboardPage() {
             onClick={() => fetchJobs(true)}
             disabled={refreshing}
             title="Refresh"
-            className="p-2 text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors disabled:opacity-50"
+            aria-label="Refresh"
+            className="w-11 h-11 flex items-center justify-center text-gold-light-text-secondary dark:text-gold-text-secondary hover:text-gold-light-text-primary dark:hover:text-gold-text-primary hover:bg-gold-light-bg-tertiary dark:hover:bg-gold-bg-tertiary rounded-lg transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent"
           >
             <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
+
+        {/* Gold string separator */}
+        <div className="h-px w-full bg-gold-light-accent dark:bg-gold-accent mb-8" />
 
         {/* Error state */}
         {error && (
@@ -160,11 +167,11 @@ export default function DashboardPage() {
         {loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-dark-surface border border-dark-border rounded-2xl overflow-hidden animate-pulse">
-                <div className="aspect-video bg-white/5" />
+              <div key={i} className="bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border border-t-2 border-t-gold-light-accent dark:border-t-gold-accent rounded-2xl overflow-hidden animate-pulse">
+                <div className="aspect-video bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary" />
                 <div className="p-4 space-y-2">
-                  <div className="h-3 bg-white/5 rounded w-3/4" />
-                  <div className="h-3 bg-white/5 rounded w-1/2" />
+                  <div className="h-3 bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary rounded w-3/4" />
+                  <div className="h-3 bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary rounded w-1/2" />
                 </div>
               </div>
             ))}
@@ -174,16 +181,16 @@ export default function DashboardPage() {
         {/* Empty state */}
         {!loading && !error && jobs.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
-              <Film className="w-10 h-10 text-slate-600" />
+            <div className="w-20 h-20 rounded-full bg-gold-accent-muted flex items-center justify-center mb-6">
+              <Film className="w-10 h-10 text-gold-light-accent dark:text-gold-accent" />
             </div>
-            <h2 className="text-xl font-bold text-slate-300 mb-2">No videos yet</h2>
-            <p className="text-slate-500 mb-8 max-w-sm">
+            <h2 className="text-xl font-bold text-gold-light-text-primary dark:text-gold-text-primary mb-2">No videos yet</h2>
+            <p className="text-gold-light-text-secondary dark:text-gold-text-secondary mb-8 max-w-sm">
               Upload your first video and VidIQ will generate a full transcript, AI summary, and scene analysis.
             </p>
             <button
               onClick={() => navigate('/upload')}
-              className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:brightness-110 active:scale-95 transition-all text-white px-6 py-3 rounded-full font-medium"
+              className="flex items-center gap-2 bg-gold-light-accent dark:bg-gold-accent hover:bg-gold-light-accent-hover dark:hover:bg-gold-accent-hover active:scale-95 transition-all text-white dark:text-gold-bg-primary px-6 py-3 rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-light-accent dark:focus-visible:ring-gold-accent focus-visible:ring-offset-2 focus-visible:ring-offset-gold-light-bg-primary dark:focus-visible:ring-offset-gold-bg-primary"
             >
               <Plus className="w-5 h-5" />
               Upload your first video

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, Loader2, Zap } from 'lucide-react';
 import useJobStatus from '../hooks/useJobStatus';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function StatusPage() {
   const { jobId } = useParams();
@@ -19,16 +20,16 @@ export default function StatusPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-dark-base text-slate-100 flex flex-col font-sans">
+      <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary flex flex-col font-sans transition-colors">
         <NavHeader />
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-[560px] bg-dark-surface border border-dark-border rounded-3xl p-8 animate-pulse-slow">
-            <div className="h-8 bg-white/5 rounded-lg w-1/2 mx-auto mb-2"></div>
-            <div className="h-4 bg-white/5 rounded-lg w-1/3 mx-auto mb-10"></div>
-            <div className="w-48 h-48 rounded-full bg-white/5 mx-auto mb-8"></div>
+          <div className="w-full max-w-[560px] bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border rounded-3xl p-8 animate-pulse-slow">
+            <div className="h-8 bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary rounded-lg w-1/2 mx-auto mb-2"></div>
+            <div className="h-4 bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary rounded-lg w-1/3 mx-auto mb-10"></div>
+            <div className="w-48 h-48 rounded-full bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary mx-auto mb-8"></div>
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-6 bg-white/5 rounded w-full"></div>
+                <div key={i} className="h-6 bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary rounded w-full"></div>
               ))}
             </div>
           </div>
@@ -39,18 +40,18 @@ export default function StatusPage() {
 
   if (status === 'failed' || error) {
     return (
-      <div className="min-h-screen bg-dark-base text-slate-100 flex flex-col font-sans">
+      <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary flex flex-col font-sans transition-colors">
         <NavHeader />
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-[560px] bg-dark-surface border border-red-500/20 rounded-3xl p-8 text-center">
+          <div className="w-full max-w-[560px] bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-red-500/20 rounded-3xl p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500">
               <AlertTriangle className="w-8 h-8" />
             </div>
             <h2 className="text-2xl font-bold mb-2">Processing Failed</h2>
-            <p className="text-slate-400 mb-8">{error || "An error occurred during processing."}</p>
+            <p className="text-gold-light-text-secondary dark:text-gold-text-secondary mb-8">{error || "An error occurred during processing."}</p>
             <button 
               onClick={() => navigate('/upload')}
-              className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors"
+              className="px-6 py-3 min-h-[44px] bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
             >
               Try Again
             </button>
@@ -76,10 +77,10 @@ export default function StatusPage() {
   const strokeDashoffset = circumference - ((safeProgress || 0) / 100) * circumference;
 
   return (
-    <div className="min-h-screen bg-dark-base text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-gold-light-bg-primary dark:bg-gold-bg-primary text-gold-light-text-primary dark:text-gold-text-primary flex flex-col font-sans transition-colors">
       <NavHeader />
       <main className="flex-1 flex items-center justify-center p-6 animate-fade-in">
-        <div className="w-full max-w-[560px] bg-dark-surface border border-dark-border rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div className="w-full max-w-[560px] bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border border-gold-light-border dark:border-gold-border border-t-2 border-t-gold-light-accent dark:border-t-gold-accent rounded-3xl p-8 shadow-2xl relative overflow-hidden">
           
           {status === 'completed' && (
             <div className="absolute inset-x-0 top-0 bg-emerald-500/90 text-white text-center py-2 font-medium text-sm animate-slide-up z-10 flex items-center justify-center gap-2">
@@ -89,7 +90,7 @@ export default function StatusPage() {
 
           <div className="text-center mb-10 mt-2">
             <h1 className="text-2xl font-bold tracking-tight mb-2">Processing Your Video</h1>
-            <p className="font-mono text-xs text-slate-500 bg-white/5 inline-block px-3 py-1 rounded-full">
+            <p className="font-mono text-xs text-gold-light-text-muted dark:text-gold-text-muted bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary inline-block px-3 py-1 rounded-full">
               ID: {jobId}
             </p>
           </div>
@@ -101,7 +102,7 @@ export default function StatusPage() {
                 cx="100"
                 cy="100"
                 r={radius}
-                className="stroke-white/5"
+                className="stroke-gold-light-bg-tertiary dark:stroke-white/5"
                 strokeWidth="12"
                 fill="none"
               />
@@ -109,7 +110,7 @@ export default function StatusPage() {
                 cx="100"
                 cy="100"
                 r={radius}
-                className="stroke-violet-500 transition-all duration-500 ease-out"
+                className="stroke-gold-light-accent dark:stroke-gold-accent transition-all duration-500 ease-out"
                 strokeWidth="12"
                 fill="none"
                 strokeDasharray={circumference}
@@ -118,27 +119,27 @@ export default function StatusPage() {
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center flex-col">
-              <span className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-indigo-400">
+              <span className="text-4xl font-bold text-gold-light-accent dark:text-gold-accent">
                 {safeProgress}%
               </span>
             </div>
           </div>
 
-          <div className="text-center mb-8 flex items-center justify-center gap-2 text-indigo-400 font-medium">
+          <div className="text-center mb-8 flex items-center justify-center gap-2 text-gold-light-accent dark:text-gold-accent font-medium">
             {status !== 'completed' && <Loader2 className="w-4 h-4 animate-spin" />}
             {stage || (safeProgress === 100 ? "Finalising..." : "Processing...")}
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
+          <div className="bg-gold-light-bg-tertiary dark:bg-gold-bg-tertiary border border-gold-light-border-subtle dark:border-gold-border-subtle rounded-2xl p-6 mb-6">
             <ul className="space-y-4">
               {steps.map((step, idx) => (
-                <li key={idx} className={`flex items-center gap-3 text-sm ${step.isComplete ? 'text-slate-200' : step.isActive ? 'text-indigo-300 font-medium' : 'text-slate-500'}`}>
+                <li key={idx} className={`flex items-center gap-3 text-sm ${step.isComplete ? 'text-gold-light-text-primary dark:text-gold-text-primary' : step.isActive ? 'text-gold-light-accent dark:text-gold-accent font-medium' : 'text-gold-light-text-muted dark:text-gold-text-muted'}`}>
                   {step.isComplete ? (
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                   ) : step.isActive ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-indigo-400 shrink-0" />
+                    <Loader2 className="w-5 h-5 animate-spin text-gold-light-accent dark:text-gold-accent shrink-0" />
                   ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-slate-600 shrink-0" />
+                    <div className="w-5 h-5 rounded-full border-2 border-gold-light-border dark:border-gold-border shrink-0" />
                   )}
                   <span>{step.label}</span>
                 </li>
@@ -146,7 +147,7 @@ export default function StatusPage() {
             </ul>
           </div>
 
-          <p className="text-center text-xs text-slate-500">
+          <p className="text-center text-xs text-gold-light-text-muted dark:text-gold-text-muted">
             Processing usually takes 1-3 minutes depending on video length.
           </p>
 
@@ -158,11 +159,12 @@ export default function StatusPage() {
 
 function NavHeader() {
   return (
-    <nav className="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-dark-base">
-      <Link to="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-        <Zap className="w-6 h-6 text-violet-500" fill="currentColor" />
+    <nav className="border-b border-gold-light-border dark:border-gold-border px-6 py-4 flex items-center justify-between bg-gold-light-bg-primary dark:bg-gold-bg-primary">
+      <Link to="/" className="flex items-center gap-2 text-xl font-display font-bold tracking-tight text-gold-light-text-primary dark:text-gold-text-primary">
+        <Zap className="w-6 h-6 text-gold-light-accent dark:text-gold-accent" fill="currentColor" />
         <span>VidIQ</span>
       </Link>
+      <ThemeToggle />
     </nav>
   );
 }
