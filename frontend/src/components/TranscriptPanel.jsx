@@ -66,7 +66,7 @@ export default function TranscriptPanel({ transcript, translatedTranscript, dete
   const isEmpty = !displayedTranscript || displayedTranscript.length === 0;
 
   return (
-    <div className="bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border-t-2 border-t-gold-light-accent dark:border-t-gold-accent border border-gold-light-border dark:border-gold-border rounded-lg h-full flex flex-col min-h-0 relative">
+    <div className="bg-gold-light-bg-secondary dark:bg-gold-bg-secondary border-t-2 border-t-gold-light-accent dark:border-t-gold-accent border border-gold-light-border dark:border-gold-border rounded-lg max-h-[70vh] flex flex-col min-h-0 relative">
       
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-gold-light-bg-secondary/90 dark:bg-gold-bg-secondary/90 backdrop-blur-md border-b border-gold-light-border dark:border-gold-border p-4 rounded-t-lg flex items-center justify-between gap-4">

@@ -196,61 +196,49 @@ export default function ResultPage() {
       </header>
 
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
-        <div className="max-w-[1600px] mx-auto h-full flex flex-col gap-4 md:gap-6">
-        <div className="flex flex-col md:flex-row gap-4 md:gap-6 flex-1 min-h-0">
-          
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-4 md:gap-6">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:items-start">
+
           {/* Left Column */}
-          <div className="w-full md:w-1/2 flex flex-col gap-4 md:gap-6 min-h-0">
-            <div className="flex-[0_0_auto]">
-              <VideoPlayer 
-                videoUrl={videoUrl} 
-                scenes={result?.scenes ?? []} 
+          <div className="w-full md:w-1/2 flex flex-col gap-4 md:gap-6">
+            <VideoPlayer
+              videoUrl={videoUrl}
+              scenes={result?.scenes ?? []}
+              highlights={result?.highlights ?? []}
+              currentTime={currentTime}
+              seekTo={seekTo}
+              onPlayerReady={handlePlayerReady}
+            />
+            <div>
+              <SummaryCard
+                summary={result?.summary}
+                sentiment={result?.sentiment}
+                chapters={result?.chapters ?? []}
                 highlights={result?.highlights ?? []}
-                currentTime={currentTime}
+                actionItems={result?.actionItems ?? []}
                 seekTo={seekTo}
-                onPlayerReady={handlePlayerReady}
+                filenameBase={jobId}
               />
-            </div>
-            <div className="flex-[1_1_auto] overflow-hidden">
-              <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
-                <SummaryCard 
-                  summary={result?.summary}
-                  sentiment={result?.sentiment}
-                  chapters={result?.chapters ?? []}
-                  highlights={result?.highlights ?? []}
-                  actionItems={result?.actionItems ?? []}
-                  seekTo={seekTo}
-                  filenameBase={jobId}
-                />
-                <QAPanel jobId={jobId} onSeek={seekTo} />
-              </div>
+              <QAPanel jobId={jobId} onSeek={seekTo} />
             </div>
           </div>
 
           {/* Right Column */}
-          <div className="w-full md:w-1/2 flex flex-col gap-4 md:gap-6 min-h-0">
-            <div className="flex-[1_1_auto] h-1/2 overflow-hidden">
-              <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
-                <TranscriptPanel 
-                  transcript={result?.transcript ?? []}
-                  translatedTranscript={result?.translatedTranscript}
-                  detectedLanguage={result?.detectedLanguage}
-                  currentTime={currentTime} 
-                  seekTo={seekTo}
-                  filenameBase={jobId}
-                />
-              </div>
-            </div>
-            <div className="flex-[1_1_auto] h-1/2 overflow-hidden">
-              <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
-                <ScenePanel 
-                  scenes={result?.scenes ?? []}
-                  labels={result?.labels ?? []}
-                  seekTo={seekTo}
-                  currentTime={currentTime}
-                />
-              </div>
-            </div>
+          <div className="w-full md:w-1/2 flex flex-col gap-4 md:gap-6">
+            <TranscriptPanel
+              transcript={result?.transcript ?? []}
+              translatedTranscript={result?.translatedTranscript}
+              detectedLanguage={result?.detectedLanguage}
+              currentTime={currentTime}
+              seekTo={seekTo}
+              filenameBase={jobId}
+            />
+            <ScenePanel
+              scenes={result?.scenes ?? []}
+              labels={result?.labels ?? []}
+              seekTo={seekTo}
+              currentTime={currentTime}
+            />
           </div>
 
         </div>

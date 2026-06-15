@@ -4,7 +4,9 @@
 
 # Kiro
 .kiro/
-
+.claude
+.context
+CLAUDE.md
 .hypothesis/
 
 # OS
