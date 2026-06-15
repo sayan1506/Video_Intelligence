@@ -31,7 +31,6 @@ from pipeline.speech_to_text import transcribe, transcribe_with_language, downlo
 from pipeline.video_intelligence import analyse_video
 from pipeline.gemini import generate_summary, translate_transcript
 from pipeline.embeddings import embed_transcript_chunks
-from services.storage import delete_gcs_object
 from services import firestore
 
 logger = logging.getLogger(__name__)
@@ -265,21 +264,10 @@ async def run_pipeline(job_message: JobMessage) -> bool:
     except Exception as e:
         logger.error(f"[{job_id}] Embedding pipeline failed (non-fatal): {e}")
 
-    # -------------------------------------------------------------------
-    # Phase 9 — Delete raw video from GCS (non-fatal)
-    # Raw video is no longer needed after pipeline completes.
-    # FLAC audio and all processed artifacts are kept.
-    # Uses job_message.gcsPath (plain path, no gs:// prefix) which is
-    # the format expected by delete_gcs_object().
-    # -------------------------------------------------------------------
-    try:
-        await asyncio.get_event_loop().run_in_executor(
-            None, delete_gcs_object, job_message.gcsPath
-        )
-        logger.info(f"[{job_id}] Raw video deleted from GCS: {job_message.gcsPath}")
-    except Exception as e:
-        logger.warning(f"[{job_id}] Raw video GCS delete failed (non-fatal): {e}")
-
+    # Raw video is intentionally retained in GCS after processing so the
+    # result/share pages can stream it via a freshly signed URL (GET
+    # /video-url/{job_id}). Deleting it here would leave gcsPath pointing at a
+    # missing object, and the signed URL would 404 in the player.
     elapsed = int(time.time() - start_time)
     firestore.mark_processing_completed(job_id, processing_time_seconds=elapsed)
 
