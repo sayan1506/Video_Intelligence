@@ -9,6 +9,10 @@ import PricingPage from './pages/PricingPage'
 import BillingSuccessPage from './pages/BillingSuccessPage'
 import AdminDashboard from './pages/AdminDashboard'
 import SharePage from './pages/SharePage'
+import ComingSoonPage from './components/ComingSoonPage'
+
+// Set to false to re-enable the full app.
+const COMING_SOON = true
 
 /**
  * PrivateRoute — redirects unauthenticated users to the landing page.
@@ -36,6 +40,10 @@ function PrivateRoute({ children }) {
 }
 
 function App() {
+  if (COMING_SOON) {
+    return <ComingSoonPage />
+  }
+
   return (
     <BrowserRouter>
       <Routes>
